@@ -256,3 +256,26 @@ async fn adding_disabled_component_does_not_start_it() {
     assert_eq!(n.node.config.read(|c|c.components.iter().find(|m|m.id=="disabled_probe").unwrap().enabled),false);
     n.close().await;
 }
+
+#[tokio::test]
+async fn explicit_peer_trust_is_directional_revocable_and_single_use() {
+    let a = TestNode::new("trust-a").await;
+    let b = TestNode::new("trust-b").await;
+    let inv = a.admin.call("peers.invite", json!({"trust_admin":true}), None, None).await.unwrap();
+    b.admin.call("peers.join", json!({"url":a.url,"code":inv["code"],"trust_admin":true,"local_url":b.url}), None, None).await.unwrap();
+    assert!(a.admin.call("peers.list",json!({}),None,None).await.unwrap()[0]["trusted_admin"].as_bool().unwrap());
+    assert!(b.admin.call("peers.list",json!({}),None,None).await.unwrap()[0]["trusted_admin"].as_bool().unwrap());
+    b.admin.call("supervisor.list",json!({}),Some("trust-a"),None).await.unwrap();
+    // tokens.list is admin-only, and both directions were explicitly approved.
+    b.admin.call("tokens.list",json!({}),Some("trust-a"),None).await.unwrap();
+    a.admin.call("tokens.list",json!({}),Some("trust-b"),None).await.unwrap();
+    a.admin.call("peers.trust",json!({"node":"trust-b","admin":false}),None,None).await.unwrap();
+    assert_eq!(code_of(b.admin.call("tokens.list",json!({}),Some("trust-a"),None).await).await,"forbidden");
+    a.admin.call("tokens.list",json!({}),Some("trust-b"),None).await.unwrap();
+    assert_eq!(code_of(b.admin.call("peers.join",json!({"url":a.url,"code":inv["code"]}),None,None).await).await,"forbidden");
+    let narrow=a.admin.call("tokens.create",json!({"name":"pairing-only","scopes":["admin:peers.invite","admin:peers.join","admin:peers.trust"]}),None,None).await.unwrap();
+    let restricted=a.client(narrow["token"].as_str());
+    assert_eq!(code_of(restricted.call("peers.invite",json!({"trust_admin":true}),None,None).await).await,"forbidden");
+    assert_eq!(code_of(restricted.call("peers.trust",json!({"node":"trust-b","admin":true}),None,None).await).await,"forbidden");
+    a.close().await;b.close().await;
+}

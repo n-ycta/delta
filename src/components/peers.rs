@@ -25,7 +25,7 @@ const PROBE_TIMEOUT: Duration = Duration::from_secs(3);
 pub struct Peers {
     me: Weak<Peers>,
     config: Arc<Config>,
-    invites: Mutex<HashMap<String, f64>>, // sha256(code) -> expires_at
+    invites: Mutex<HashMap<String, (f64, bool)>>, // sha256(code) -> (expiry, grant_admin)
     nonces: NonceCache,
     kernel: Mutex<Option<Arc<Kernel>>>,
 }
@@ -152,7 +152,8 @@ impl Component for Peers {
     fn capabilities(&self) -> Vec<CapSpec> {
         let s = |req: bool| json!({"type": "string", "required": req});
         vec![
-            cap("peers.invite", "Create a one-time code another node can use to join", json!({}), true, false),
+            cap("peers.invite", "Create a one-time invitation with explicit incoming trust", json!({"trust_admin": {"type":"boolean"}}), true, false),
+            cap("peers.trust", "Change incoming administrative trust for a paired node", json!({"node": s(true), "admin": {"type":"boolean", "required":true}}), true, false),
             cap(
                 "peers.accept",
                 "Accept a join request carrying an invite code",
@@ -163,7 +164,7 @@ impl Component for Peers {
             cap(
                 "peers.join",
                 "Join another node using its URL and invite code",
-                json!({"url": s(true), "code": s(true), "trust_admin": {"type":"boolean"}}),
+                json!({"url": s(true), "code": s(true), "trust_admin": {"type":"boolean"}, "local_url": s(false)}),
                 true,
                 false,
             ),
@@ -202,12 +203,15 @@ impl Component for Peers {
         let sarg = |key: &str| args.get(key).and_then(Value::as_str).unwrap_or("").to_string();
         match capability {
             "peers.invite" => {
+                let trust_admin = args["trust_admin"].as_bool().unwrap_or(false);
+                if trust_admin && !ctx.principal.is_admin() { return Err(DeltaError::forbidden("granting administrative trust requires global admin")); }
                 let code = random_hex(18);
                 let t = now();
                 {
                     let mut inv = self.invites.lock().unwrap();
-                    inv.retain(|_, exp| *exp > t);
-                    inv.insert(sha256_hex(code.as_bytes()), t + INVITE_TTL);
+                    inv.retain(|_, (exp, _)| *exp > t);
+                    if inv.len() >= 128 { return Err(DeltaError::conflict("too many pending invitations")); }
+                    inv.insert(sha256_hex(code.as_bytes()), (t + INVITE_TTL, trust_admin));
                 }
                 let url = self.config.read(|c| c.url.clone());
                 Ok(json!({
@@ -215,9 +219,18 @@ impl Component for Peers {
                     "command": format!("delta join {url} {code}"),
                 }))
             }
+            "peers.trust" => {
+                if !ctx.principal.is_admin() { return Err(DeltaError::forbidden("changing administrative trust requires global admin")); }
+                let admin = args["admin"].as_bool().ok_or_else(|| DeltaError::bad_request("admin boolean required"))?;
+                let mut peer = self.resolve(&sarg("node"))?;
+                peer.scopes = vec![if admin { "admin".into() } else { "call:*".into() }];
+                let out = json!({"node_id":peer.node_id,"trusted_admin":admin});
+                self.upsert(peer);
+                Ok(out)
+            }
             "peers.accept" => {
                 let h = sha256_hex(sarg("code").as_bytes());
-                let expires = self.invites.lock().unwrap().remove(&h).unwrap_or(0.0);
+                let (expires, trust_admin) = self.invites.lock().unwrap().remove(&h).unwrap_or((0.0, false));
                 if expires < now() {
                     return Err(DeltaError::forbidden("invalid or expired invite code"));
                 }
@@ -231,7 +244,7 @@ impl Component for Peers {
                     name: trunc(&sarg("name"), 64),
                     url: trunc(&sarg("url"), 512),
                     secret: secret.clone(),
-                    scopes: vec!["call:*".into()],
+                    scopes: if trust_admin { vec!["admin".into()] } else { vec!["call:*".into()] },
                     added: now(),
                 });
                 Ok(json!({
@@ -241,13 +254,17 @@ impl Component for Peers {
             }
             "peers.join" => {
                 let url = sarg("url");
+                if args["trust_admin"].as_bool() == Some(true) && !ctx.principal.is_admin() { return Err(DeltaError::forbidden("granting administrative trust requires global admin")); }
+                let advertised = args.get("local_url").and_then(Value::as_str).map(str::to_owned).unwrap_or_else(|| self.config.read(|c| c.url.clone()));
+                let parsed = reqwest::Url::parse(&advertised).map_err(|_| DeltaError::bad_request("invalid local_url"))?;
+                if !["http", "https"].contains(&parsed.scheme()) || parsed.host_str().is_none() || !parsed.username().is_empty() || parsed.password().is_some() || parsed.fragment().is_some() || advertised.len() > 512 { return Err(DeltaError::bad_request("invalid local_url")); }
                 let res = Client::new(&url, None)
                     .with_timeout(Duration::from_secs(10))
                     .call(
                         "peers.accept",
                         json!({
                             "code": sarg("code"), "node_id": k.node_id, "name": k.name,
-                            "url": self.config.read(|c| c.url.clone()),
+                            "url": advertised,
                         }),
                         None,
                         None,
@@ -272,7 +289,7 @@ impl Component for Peers {
                     let c = self.client(p, &k, Some(PROBE_TIMEOUT));
                     let p = p.clone();
                     async move {
-                        let mut out = json!({"node_id": p.node_id, "name": p.name, "url": p.url, "online": false});
+                        let mut out = json!({"node_id": p.node_id, "name": p.name, "url": p.url, "trusted_admin": p.scopes.iter().any(|s| s == "admin"), "online": false});
                         match c.call("core.info", json!({}), None, None).await {
                             Ok(info) => {
                                 out["online"] = json!(true);

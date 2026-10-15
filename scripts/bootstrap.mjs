@@ -8,7 +8,7 @@ const binary=resolve(home,'bin',platform()==='win32'?'delta.exe':'delta');
 let url='http://127.0.0.1:'+value('--port','7700');
 await mkdir(home,{recursive:true,mode:0o700});
 const run=args=>{const r=spawnSync(binary,args,{stdio:'inherit',env:process.env});if(r.status!==0)throw Error('Delta command failed: '+args[0]);};
-try{await access(resolve(home,'config.json'))}catch{run(['init','--name',value('--name',hostname()),'--listen',value('--listen','127.0.0.1'),'--port',value('--port','7700'),...(value('--public-url')?['--url',value('--public-url')]:[])]);}
+try{await access(resolve(home,'config.json'))}catch{run(['init','--kind',value('--kind','desktop'),'--name',value('--name',hostname()),'--listen',value('--listen','127.0.0.1'),'--port',value('--port','7700'),...(value('--public-url')?['--url',value('--public-url')]:[])]);}
 const config=JSON.parse(await readFile(resolve(home,'config.json'),'utf8'));
 url='http://127.0.0.1:'+config.port;
 const token=(await readFile(resolve(home,'admin.token'),'utf8')).trim();

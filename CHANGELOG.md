@@ -11,6 +11,26 @@
 
 - Improve release documentation and changelog-backed release publishing; no new runtime release is created for this maintenance change.
 
+## [v0.4.0]
+
+### Features
+- Explicit directional administrative trust for paired nodes, including equal-peer deployments.
+- Bind incoming administrative grants to single-use pairing invitations; only global owners can grant or change trust.
+- Per-relationship callback URLs for protected reverse tunnels without changing global node addresses.
+- Report incoming administrative trust in peer discovery and support immediate downgrade/revocation.
+
+### Improvements
+- Identify bare Linux server installs with the VPS node kind.
+- Document core-supervised SSH connections, private forwarding keys, restart recovery and operational limits.
+
+### Security
+- Reject administrative trust escalation by narrowly delegated pairing tokens.
+- Bound pending invitations and validate callback URL schemes and credentials.
+- Preserve non-administrative defaults for existing pairing clients.
+
+### Validation
+- Integration tests cover real two-node routing, mutual and one-way grants, downgrade, single-use invitations and delegated-token rejection.
+
 ## [v0.3.4]
 
 This release focuses on safe checked plugin updates.
