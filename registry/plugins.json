@@ -5,9 +5,9 @@
       "id": "dev.delta.db",
       "component": "storage",
       "repository": "https://github.com/n-ycta/delta_db",
-      "version": "0.2.0",
-      "asset": "https://github.com/n-ycta/delta_db/releases/download/v0.2.0/delta_db.tar.gz",
-      "sha256": "40448175a98a4aa808146f514ab8f77bc579fea1440677c08047d13225ed6b4b",
+      "version": "0.2.1",
+      "asset": "https://github.com/n-ycta/delta_db/releases/download/v0.2.1/delta_db.tar.gz",
+      "sha256": "1c9cfb5cc54e6433e7f150753d909bc1484ca5660630632a185f40c250c2a4bb",
       "scopes": [
         "register:storage",
         "call:storage.*"
@@ -15,7 +15,7 @@
       "manifest": {
         "id": "dev.delta.db",
         "name": "Delta Storage",
-        "version": "0.2.0",
+        "version": "0.2.1",
         "contract": "^1.4.0",
         "publisher": "Delta",
         "description": "Unified storage with local files or PostgreSQL + TimescaleDB.",
@@ -185,16 +185,16 @@
       "id": "dev.delta.web",
       "component": "web",
       "repository": "https://github.com/n-ycta/delta-web",
-      "version": "0.2.0",
-      "asset": "https://github.com/n-ycta/delta-web/releases/download/v0.2.0/delta-web.tar.gz",
-      "sha256": "458d9c8bc909d8adc1498bb6b960332ab9a20c9c1c7e9d1bd383945c39787dec",
+      "version": "0.2.3",
+      "asset": "https://github.com/n-ycta/delta-web/releases/download/v0.2.3/delta-web.tar.gz",
+      "sha256": "4ff3b8d8ebd645cbcfb49f99ffd3fc2143af0ebefc52360ddf28dcbf91e334be",
       "scopes": [
         "admin"
       ],
       "manifest": {
         "id": "dev.delta.web",
         "name": "Delta Web",
-        "version": "0.2.0",
+        "version": "0.2.3",
         "contract": "^1.4.0",
         "description": "A modular control panel for your nodes, data and automation.",
         "publisher": "Delta",
@@ -272,9 +272,9 @@
       "id": "dev.delta.type",
       "component": "typing",
       "repository": "https://github.com/n-ycta/delta_type",
-      "version": "0.2.0",
-      "asset": "https://github.com/n-ycta/delta_type/releases/download/v0.2.0/delta_type.tar.gz",
-      "sha256": "819807fed28175015257e2dc1ccbb3d9e3976a102d0f59859e7e4da6f9327a1c",
+      "version": "0.2.1",
+      "asset": "https://github.com/n-ycta/delta_type/releases/download/v0.2.1/delta_type.tar.gz",
+      "sha256": "186bb9c6a5f71421667dc06d4eb2892c09fff6a6352fe035a8a5d496c61a7a53",
       "scopes": [
         "register:typing",
         "call:storage.write"
@@ -284,7 +284,7 @@
         "name": "Delta Type",
         "description": "Opt-in RU/EN typing aggregates without recording text. Browser trainer or trusted aggregate clients.",
         "publisher": "Delta",
-        "version": "0.2.0",
+        "version": "0.2.1",
         "contract": "^1.4.0",
         "icon": "keyboard",
         "category": "input",
