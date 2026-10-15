@@ -80,6 +80,7 @@ pub struct ManagedSpec {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(default)]
 pub struct ConfigData {
+    pub node_kind: String,
     pub node_id: String,
     pub name: String,
     pub listen: String,
@@ -97,6 +98,7 @@ pub struct ConfigData {
 impl Default for ConfigData {
     fn default() -> Self {
         Self {
+            node_kind: "desktop".into(),
             node_id: String::new(),
             name: String::new(),
             listen: "127.0.0.1".into(),

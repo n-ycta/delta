@@ -335,7 +335,7 @@ impl Kernel {
     // -- identity
     pub fn info(&self) -> Value {
         json!({
-            "node_id": self.node_id,
+            "node_id": self.node_id, "kind": self.config.read(|c| c.node_kind.clone()),
             "name": self.name,
             "version": self.version,
             "url": self.config.read(|c| c.url.clone()),

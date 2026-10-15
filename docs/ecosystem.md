@@ -8,7 +8,7 @@
 
 ```sh
 cd delta && cargo build --release
-./target/release/delta init --name Delta
+./target/release/delta init --name Delta --kind vps
 ./target/release/delta run
 ```
 
@@ -43,3 +43,5 @@ Web: `http://127.0.0.1:7710`. Настройки → Подключение: р�
 ## Проверки
 
 `cargo test`; в web: `npm test`, `npm run test:server`, `npm run test:i18n`, `npm run build`; в DB/Type: `npm test`. E2E-тесты отдельно описаны в отчётах репозиториев.
+
+Тип ноды задаётся `delta init --kind vps|android|desktop|sbc|container` и публикуется `core.info`. Это классификация устройства, не поддержка глобального сбора на Android; Rust-реализация ядра остаётся Unix-only.

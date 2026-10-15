@@ -19,6 +19,8 @@ struct Cli {
 enum Cmd {
     /// create node identity, config and admin token
     Init {
+        #[arg(long, default_value = "desktop", value_parser = ["vps", "android", "desktop", "sbc", "container"])]
+        kind: String,
         #[arg(long, default_value = "")]
         name: String,
         /// bind address (0.0.0.0 for other machines)
@@ -135,7 +137,7 @@ fn parse_kv(pairs: &[String]) -> Map<String, Value> {
     out
 }
 
-fn cmd_init(name: String, listen: String, port: u16, url: String, force: bool) {
+fn cmd_init(kind: String, name: String, listen: String, port: u16, url: String, force: bool) {
     let home = delta_home();
     if Config::exists(&home) && !force {
         println!("Already initialised at {} (use --force to recreate)", home.join("config.json").display());
@@ -177,7 +179,7 @@ async fn cmd_run() -> Result<(), DeltaError> {
 
 async fn dispatch(cmd: Cmd) -> Result<(), DeltaError> {
     match cmd {
-        Cmd::Init { name, listen, port, url, force } => cmd_init(name, listen, port, url, force),
+        Cmd::Init { kind, name, listen, port, url, force } => cmd_init(kind, name, listen, port, url, force),
         Cmd::Run => cmd_run().await?,
         Cmd::Status { json: _ } => {
             let c = make_client();

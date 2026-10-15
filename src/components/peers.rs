@@ -276,6 +276,7 @@ impl Component for Peers {
                         match c.call("core.info", json!({}), None, None).await {
                             Ok(info) => {
                                 out["online"] = json!(true);
+                                out["kind"] = info.get("kind").cloned().unwrap_or(json!("desktop"));
                                 out["version"] = info.get("version").cloned().unwrap_or(Value::Null);
                                 out["uptime"] = info.get("uptime").cloned().unwrap_or(Value::Null);
                             }
