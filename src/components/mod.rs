@@ -12,3 +12,9 @@ pub use peers::Peers;
 pub use supervisor::Supervisor;
 pub use system::System;
 pub use tokens::Tokens;
+
+pub mod identity;
+pub use identity::Identity;
+
+pub mod packages;
+pub use packages::Packages;

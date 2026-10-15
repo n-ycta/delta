@@ -29,3 +29,7 @@ clap = { version = "4", features = ["derive"] }
 libc = "0.2"
 
 sysinfo = "0.33"
+k256 = { version = "0.13", features = ["schnorr"] }
+
+flate2 = "1"
+tar = "0.4"

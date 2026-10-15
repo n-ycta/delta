@@ -1,5 +1,5 @@
 //! Assembles a node: config -> kernel -> built-in components -> transport -> ready.
-use crate::components::{Core, Exec, Peers, Supervisor, System, Tokens};
+use crate::components::{Core, Exec, Peers, Supervisor, System, Tokens, Identity};
 use crate::config::Config;
 use crate::errors::{DeltaError, Result};
 use crate::kernel::{Component, Kernel};
@@ -38,6 +38,8 @@ impl Node {
         if b.tokens {
             kernel.add(Arc::new(Tokens)).await?;
         }
+        kernel.add(Arc::new(Identity::new())).await?;
+        kernel.add(Arc::new(crate::components::Packages::new())).await?;
         if b.peers {
             let peers: Arc<dyn Component> = Peers::new(config.clone());
             kernel.add(peers).await?;
