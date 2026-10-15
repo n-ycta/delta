@@ -5,6 +5,12 @@ DELTA_VERSION=${DELTA_VERSION:-v0.3.0}
 NODE_VERSION=v24.14.1
 HOME_DIR=${DELTA_HOME:-"$HOME/.delta"}
 export DELTA_HOME="$HOME_DIR"
+if [ "${1:-}" = "--choose" ]; then
+ shift
+ printf 'Install [1] node + web (default), [2] node + web + typing, [3] bare node: ' >/dev/tty
+ read -r CHOICE </dev/tty
+ case "$CHOICE" in 2) set -- --plugins storage,web,typing "$@";; 3) set -- --plugins '' "$@";; *) set -- --plugins storage,web "$@";; esac
+fi
 if [ "${DELTA_FORCE_DOWNLOAD:-0}" != 1 ] && [ -x "$HOME_DIR/bin/delta" ] && [ -x "$HOME_DIR/runtime/bin/node" ] && [ -f "$HOME_DIR/bin/bootstrap.mjs" ]; then
  exec "$HOME_DIR/runtime/bin/node" "$HOME_DIR/bin/bootstrap.mjs" "$@"
 fi
@@ -30,10 +36,5 @@ curl -fLsS "https://nodejs.org/dist/$NODE_VERSION/SHASUMS256.txt" -o "$TMP/node-
 tar -xJf "$TMP/$NODE_ASSET" --strip-components=1 -C "$HOME_DIR/runtime"
 export PATH="$HOME_DIR/runtime/bin:$HOME_DIR/bin:$PATH"
 export DELTA_NODE_BINARY="$HOME_DIR/runtime/bin/node" DELTA_NPM_BINARY="$HOME_DIR/runtime/bin/npm"
-if [ "${1:-}" = "--choose" ]; then
- shift
- printf 'Install [1] node + web (default), [2] node + web + typing, [3] bare node: ' >/dev/tty
- read -r CHOICE </dev/tty
- case "$CHOICE" in 2) set -- --plugins storage,web,typing "$@";; 3) set -- --plugins '' "$@";; *) set -- --plugins storage,web "$@";; esac
-fi
+
 exec "$DELTA_NODE_BINARY" "$HOME_DIR/bin/bootstrap.mjs" "$@"
