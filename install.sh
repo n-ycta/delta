@@ -37,4 +37,6 @@ tar -xJf "$TMP/$NODE_ASSET" --strip-components=1 -C "$HOME_DIR/runtime"
 export PATH="$HOME_DIR/runtime/bin:$HOME_DIR/bin:$PATH"
 export DELTA_NODE_BINARY="$HOME_DIR/runtime/bin/node" DELTA_NPM_BINARY="$HOME_DIR/runtime/bin/npm"
 
+rm -rf "$TMP"
+trap - EXIT HUP INT TERM
 exec "$DELTA_NODE_BINARY" "$HOME_DIR/bin/bootstrap.mjs" "$@"
