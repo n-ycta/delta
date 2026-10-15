@@ -65,6 +65,10 @@ pub struct ExecCfg {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ManagedSpec {
+    #[serde(default)]
+    pub scopes: Option<Vec<String>>,
+    #[serde(default)]
+    pub token_name: Option<String>,
     pub id: String,
     pub command: Vec<String>,
     #[serde(default)]

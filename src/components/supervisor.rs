@@ -1,7 +1,8 @@
 //! Supervisor: starts managed external components, restarts them, keeps their logs.
 //!
 //! Each managed process gets DELTA_URL and an in-memory token scoped to `register:<id>`
-//! (plus `call:*` so it can use other capabilities), never the admin token.
+//! Default legacy scopes include `call:*`; admins can configure explicit scopes and token_name.
+//! The injected credential is ephemeral and revoked on process replacement/stop.
 use crate::config::{Config, ManagedSpec};
 use crate::errors::{DeltaError, Result};
 use crate::kernel::{cap, CallContext, CapSpec, Component, Kernel};
@@ -93,8 +94,9 @@ fn spawn_process(m: &mut Managed, kernel: &Arc<Kernel>, config: &Arc<Config>) {
         m.next_try = Some(Instant::now() + Duration::from_secs(5));
         return;
     };
-    let scopes = vec![format!("register:{id}"), "call:*".to_string()];
-    let (token, rec) = match kernel.tokens.create(&format!("component:{id}"), &scopes, false) {
+    let scopes = m.spec.scopes.clone().unwrap_or_else(|| vec![format!("register:{id}"), "call:*".to_string()]);
+    let token_name = m.spec.token_name.clone().unwrap_or_else(|| format!("component:{id}"));
+    let (token, rec) = match kernel.tokens.create(&token_name, &scopes, false) {
         Ok(v) => v,
         Err(e) => {
             m.last_exit = Some(json!(format!("spawn failed: {e}")));
@@ -291,7 +293,7 @@ impl Component for Supervisor {
             cap(
                 "supervisor.add",
                 "Add and start a managed component",
-                json!({"id": {"type": "string", "required": true}, "command": {"type": "array", "required": true}, "env": {"type": "object"}}),
+                json!({"id": {"type": "string", "required": true}, "command": {"type": "array", "required": true}, "env": {"type": "object"}, "scopes": {"type": "array"}, "token_name": {"type": "string"}}),
                 true,
                 false,
             ),
@@ -348,13 +350,19 @@ impl Component for Supervisor {
                 if !valid_id(&id) || command.is_empty() {
                     return Err(DeltaError::bad_request("invalid id or empty command"));
                 }
+                let scopes = args.get("scopes").and_then(Value::as_array).map(|a| a.iter().map(|v| v.as_str().unwrap_or("").to_string()).collect::<Vec<_>>());
+                if scopes.as_ref().map(|ss| ss.iter().any(|s| !crate::auth::valid_scope(s))).unwrap_or(false) {
+                    return Err(DeltaError::bad_request("invalid managed token scope"));
+                }
+                let token_name = args.get("token_name").and_then(Value::as_str).map(String::from);
+                if token_name.as_ref().map(|n| n.is_empty() || n.len() > 128).unwrap_or(false) { return Err(DeltaError::bad_request("invalid token_name")); }
                 let env = args.get("env").and_then(Value::as_object).cloned().unwrap_or_default();
                 {
                     let mut g = self.items.lock().unwrap();
                     if g.contains_key(&id) {
                         return Err(DeltaError::conflict(format!("{id} already managed")));
                     }
-                    g.insert(id.clone(), Managed::new(ManagedSpec { id: id.clone(), command, env, enabled: true }));
+                    g.insert(id.clone(), Managed::new(ManagedSpec { id: id.clone(), command, env, enabled: true, scopes, token_name }));
                 }
                 self.persist();
                 Ok(json!({"added": id}))
