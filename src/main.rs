@@ -144,6 +144,7 @@ fn cmd_init(kind: String, name: String, listen: String, port: u16, url: String, 
         return;
     }
     let cfg = Arc::new(Config::new(home.clone(), default_config(&name, &listen, port, &url)));
+    cfg.update(|c| c.node_kind = kind);
     if let Err(e) = cfg.save() {
         die(format!("cannot write config: {e}"));
     }

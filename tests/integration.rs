@@ -149,3 +149,14 @@ async fn external_metadata_and_caller_scopes_are_preserved() {
     assert_eq!(code_of(n.client(t["token"].as_str()).call("inspect.identity", json!({}), None, None).await).await, "unauthorized");
     n.close().await;
 }
+
+#[test]
+fn cli_init_persists_node_kind() {
+    let home = std::env::temp_dir().join(format!("delta-kind-{}", random_hex(4)));
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_delta"))
+        .env("DELTA_HOME", &home).args(["init", "--name", "test-vps", "--kind", "vps"]).output().unwrap();
+    assert!(output.status.success());
+    let config: Value = serde_json::from_slice(&std::fs::read(home.join("config.json")).unwrap()).unwrap();
+    assert_eq!(config["node_kind"], "vps");
+    let _ = std::fs::remove_dir_all(home);
+}
