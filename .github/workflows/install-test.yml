@@ -25,7 +25,7 @@ jobs:
         shell: pwsh
         run: |
           $env:DELTA_HOME=Join-Path $env:RUNNER_TEMP 'Delta Test Home'
-          ./install.ps1 -NoService -Plugins storage,web,typing *> "$env:RUNNER_TEMP/delta-setup.log"
+          ./install.ps1 -NoService -Plugins 'storage,web,typing' *> "$env:RUNNER_TEMP/delta-setup.log"
           "DELTA_HOME=$env:DELTA_HOME" >> $env:GITHUB_ENV
           "NODE_BIN=$env:DELTA_HOME/runtime/node.exe" >> $env:GITHUB_ENV
       - name: Verify live installed ecosystem

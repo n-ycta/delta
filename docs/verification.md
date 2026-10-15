@@ -4,7 +4,7 @@
 
 - Core: native Linux build; 7 integration tests and 1 SDK doctest. Includes node pairing/routing, scopes, external registration, caller preservation, CLI node kind, signed-login replay and key revocation, and administrative-delegation limits.
 - Native GitHub Actions: Linux and Windows `cargo test --locked` pass. Release builds produce Linux x64/ARM64 musl and Windows x64 binaries.
-- Web: strict TypeScript production build; 20 contract/registry/layout/endpoint tests and 12 server/security tests.
+- Web: strict TypeScript production build; 22 contract/registry/layout/endpoint/chart-query tests and 12 server/security tests.
 - Storage: 5 file/schema/parameterized-query/owner-isolation tests.
 - Typing: 4 aggregate/privacy/outbox tests.
 - UI locale checks: EN/RU key and interpolation parity; no hardcoded Russian literals or bare JSX text in owned UI source. Plugin presentation has separate EN/RU manifest patches.
@@ -21,7 +21,7 @@ Two independent local nodes were paired. Directional administrative trust, remot
 
 ## Browser checks
 
-Desktop 1440×1000 and mobile 390×844: overview, dashboards, plugins/detail/settings, nodes/detail, contracts, events, access, settings, keys and MCP. No page errors or horizontal page overflow. Sparse samples remain visible as dots without inventing interpolated values across missing buckets. MCP and storage forms were visually inspected after layout fixes.
+Desktop 1440×1000 and mobile 390×844: overview, dashboards, plugins/detail/settings, nodes/detail, contracts, events, access, settings, keys and MCP. No page errors or horizontal page overflow. Sparse samples can be shown as dots or connected lines, areas, steps and time bars. Lines connect observed values by default; the gap switch preserves breaks without changing missing values. Browser regressions verify all five modes, bucket queries, saved reloads and mobile rendering. Palette buttons are checked against their own panel bounds at widths 320, 360, 390, 768 and 1440 pixels. MCP and storage forms were visually inspected after layout fixes.
 
 First manual login accepts `/api` before authentication and keeps API secrets out of localStorage. Automatic installer login uses an HttpOnly cookie instead. Product screenshots use live node telemetry and explicitly generated aggregate-only typing sessions; they are not personal keystroke captures.
 

@@ -185,16 +185,16 @@
       "id": "dev.delta.web",
       "component": "web",
       "repository": "https://github.com/n-ycta/delta-web",
-      "version": "0.2.4",
-      "asset": "https://github.com/n-ycta/delta-web/releases/download/v0.2.4/delta-web.tar.gz",
-      "sha256": "38c36dbef733e9d265dd562f8b52a0889d7c8d4c71a96ca8019dda53a32f0b39",
+      "version": "0.2.5",
+      "asset": "https://github.com/n-ycta/delta-web/releases/download/v0.2.5/delta-web.tar.gz",
+      "sha256": "02dc9c9b25f0e4b48d66b78c1782662ec408325eeded56c0802538a110e8ea5b",
       "scopes": [
         "admin"
       ],
       "manifest": {
         "id": "dev.delta.web",
         "name": "Delta Web",
-        "version": "0.2.4",
+        "version": "0.2.5",
         "contract": "^1.4.0",
         "description": "A modular control panel for your nodes, data and automation.",
         "publisher": "Delta",
