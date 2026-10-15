@@ -1,7 +1,7 @@
 #!/bin/sh
 # Delta official installer. Download, inspect, then execute if you prefer not to pipe a script.
 set -eu
-DELTA_VERSION=${DELTA_VERSION:-v0.3.1}
+DELTA_VERSION=${DELTA_VERSION:-v0.3.2}
 NODE_VERSION=v24.14.1
 HOME_DIR=${DELTA_HOME:-"$HOME/.delta"}
 export DELTA_HOME="$HOME_DIR"
@@ -29,13 +29,23 @@ curl -fLsS "$BASE/SHA256SUMS" -o "$TMP/sums"
 (cd "$TMP"; grep "  $ASSET\$" sums | sha256sum -c -)
 tar -xzf "$TMP/$ASSET" -C "$TMP"
 install -m 700 "$TMP/delta" "$HOME_DIR/bin/delta"
-cp "$TMP/bootstrap.mjs" "$HOME_DIR/bin/bootstrap.mjs"
+cp "$TMP/bootstrap.mjs" "$TMP/upgrade.mjs" "$HOME_DIR/bin/"
 # A private Node runtime makes installation independent of system Node/npm versions.
 NODE_ASSET="node-$NODE_VERSION-linux-$ARCH.tar.xz"
 curl -fLsS "https://nodejs.org/dist/$NODE_VERSION/$NODE_ASSET" -o "$TMP/$NODE_ASSET"
 curl -fLsS "https://nodejs.org/dist/$NODE_VERSION/SHASUMS256.txt" -o "$TMP/node-sums"
 (cd "$TMP"; grep "  $NODE_ASSET\$" node-sums | sha256sum -c -)
-tar -xJf "$TMP/$NODE_ASSET" --strip-components=1 -C "$HOME_DIR/runtime"
+# Do not overwrite an executable used by running plugins (ETXTBSY on Linux).
+mkdir "$TMP/runtime"
+tar -xJf "$TMP/$NODE_ASSET" --strip-components=1 -C "$TMP/runtime"
+OLD_RUNTIME="$HOME_DIR/.runtime-old.$$"
+mv "$HOME_DIR/runtime" "$OLD_RUNTIME"
+if mv "$TMP/runtime" "$HOME_DIR/runtime"; then
+ rm -rf "$OLD_RUNTIME"
+else
+ mv "$OLD_RUNTIME" "$HOME_DIR/runtime"
+ exit 1
+fi
 printf '%s\n' "$DELTA_VERSION" > "$HOME_DIR/bin/release-version"
 export PATH="$HOME_DIR/runtime/bin:$HOME_DIR/bin:$PATH"
 export DELTA_NODE_BINARY="$HOME_DIR/runtime/bin/node" DELTA_NPM_BINARY="$HOME_DIR/runtime/bin/npm"
