@@ -27,7 +27,7 @@ First manual login accepts `/api` before authentication and keeps API secrets ou
 
 ## Release installation checks
 
-`.github/workflows/install-test.yml` installs published binaries and all plugin release packages on Linux/Windows, using paths with spaces and no Rust compilation. `scripts/verify-install.mjs` verifies file backend, typing ingestion, all plugin registrations and web HTTP. Consult the latest **Prebuilt installation smoke test** run for the release-specific result; compiling a Windows binary alone is not a claim of a completed Windows install test.
+`.github/workflows/install-test.yml` installs published binaries and all plugin release packages on Linux/Windows, using paths with spaces and no Rust compilation. The public release smoke test [38716266968](https://github.com/n-ycta/delta/actions/runs/38716266968) passed on both platforms with core 0.3.1, web 0.2.5, storage 0.2.1 and typing 0.2.1. A separate fresh Linux installation from the same public downloads also passed. `scripts/verify-install.mjs` verifies file backend, typing ingestion, all plugin registrations and web HTTP. Consult the latest **Prebuilt installation smoke test** run for the release-specific result; compiling a Windows binary alone is not a claim of a completed Windows install test.
 
 ## Boundaries
 
