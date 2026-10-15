@@ -375,7 +375,7 @@ impl Component for Supervisor {
                     if g.contains_key(&id) {
                         return Err(DeltaError::conflict(format!("{id} already managed")));
                     }
-                    g.insert(id.clone(), Managed::new(ManagedSpec { id: id.clone(), command, env, enabled: true, scopes, token_name }));
+                    g.insert(id.clone(), Managed::new(ManagedSpec { id: id.clone(), command, env, enabled: args["enabled"].as_bool().unwrap_or(true), scopes, token_name }));
                 }
                 self.persist();
                 Ok(json!({"added": id}))
