@@ -1,36 +1,41 @@
 # Verification report
 
-## Automated checks
+## Automated source checks
 
-- Rust stable / Linux: `cargo build` and `cargo test` pass; 6 integration tests + 1 SDK doctest. Includes node pairing/routing, validation/scopes, external metadata/caller scopes, expiry, CLI node-kind persistence.
-- Web: 20 contract/registry/layout/endpoint tests + 6 server tests; TypeScript strict build passes.
-- DB: 4 schema/parameterized-query/owner tests.
-- Type: 4 aggregate/privacy/outbox tests.
-- UI localization: 1483+ own presentation strings in partitioned ru.json; hardcoded Russian literals / JSX text checker passes. Published plugin metadata is localized data owned by each plugin, not executable UI code.
-- npm audit for web after Vite 8.3.4 / React Router 7.18.4 upgrade: 0 vulnerabilities at verification time.
+- Core: native Linux build; 7 integration tests and 1 SDK doctest. Includes node pairing/routing, scopes, external registration, caller preservation, CLI node kind, signed-login replay and key revocation, and administrative-delegation limits.
+- Native GitHub Actions: Linux and Windows `cargo test --locked` pass. Release builds produce Linux x64/ARM64 musl and Windows x64 binaries.
+- Web: strict TypeScript production build; 20 contract/registry/layout/endpoint tests and 12 server/security tests.
+- Storage: 5 file/schema/parameterized-query/owner-isolation tests.
+- Typing: 4 aggregate/privacy/outbox tests.
+- UI locale checks: EN/RU key and interpolation parity; no hardcoded Russian literals or bare JSX text in owned UI source. Plugin presentation has separate EN/RU manifest patches.
 
-## Real end-to-end checks
+## Real integration checks
 
-Tested native PostgreSQL **15.18** + TimescaleDB **2.17.2**, not a mock store. Extension and `delta_records` hypertable confirmed. Docker Compose ships PG16/TimescaleDB; that container image was not separately launched in this environment.
+Both file storage and native PostgreSQL 15.18 + TimescaleDB 2.17.2 were exercised, not replaced with mock stores. The PostgreSQL extension and hypertable are real. Switching file → PostgreSQL → file was tested with explicit acknowledgement; each backend retains its own data, without pretending to migrate it. The bundled Docker Compose image was not separately launched here.
 
-Live core + three independently supervised plugins: discovery, RU/EN sessions → durable outbox → PostgreSQL → filtered/grouped web metrics, UUID/time deduplication, previous-period alignment, dashboard save/load, CPU/memory/node status, ping, restricted-token denial of admin actions, token creation with expiry. Passed `delta-web/tests/e2e-live.mjs`.
+A live node with all three independent plugins passed discovery, RU/EN aggregate ingestion, duplicate-session rejection, outbox flush, storage deduplication, filtered/grouped metrics, comparison queries, dashboard save/load, node telemetry/ping, token expiry creation and restricted-delegation denial (`delta-web/tests/e2e-live.mjs`).
 
-Browser checks: desktop 1440×1000 and mobile 390×844; home, plugins, typing detail, nodes, node detail, contracts, dashboard, events, access, settings. No page errors, no mobile horizontal overflow. First login from an empty browser session accepts `/api`; applying the user's token does not write it to localStorage. Scripts saved under delta-web/scripts.
+Real HTTP tests passed signed browser login, one-use challenge rejection, key/session revocation, installer bootstrap exchange, MCP initialize/list/call, disallowed tool/source denial and profile revocation (`tests/onboarding-live.mjs`). JSON schemas now describe nested metric arguments so MCP clients can construct calls rather than guessing undocumented payloads.
 
-## Reproduction
+Two independent local nodes were paired. Directional administrative trust, remote process restart, denial of broad read-only administrative calls, peer discovery and forwarding a typing record into hub storage with the authenticated remote node ID were tested. This verifies reachable-node routing, not Internet NAT traversal or replication.
 
-Follow ecosystem.md, then:
+## Browser checks
 
-```sh
-cd delta-web
-npm run test:e2e
-npm exec playwright install chromium --only-shell
-npm run test:first-login
-npm run test:browser
-```
+Desktop 1440×1000 and mobile 390×844: overview, dashboards, plugins/detail/settings, nodes/detail, contracts, events, access, settings, keys and MCP. No page errors or horizontal page overflow. Sparse samples remain visible as dots without inventing interpolated values across missing buckets. MCP and storage forms were visually inspected after layout fixes.
 
-The browser suite creates a fixture dashboard in the test user's account. Use a disposable test node and database. Secrets remain in private runtime files outside git and are excluded from the delivery archive.
+First manual login accepts `/api` before authentication and keeps API secrets out of localStorage. Automatic installer login uses an HttpOnly cookie instead. Product screenshots use live node telemetry and explicitly generated aggregate-only typing sessions; they are not personal keystroke captures.
 
-## Explicit limitations
+## Release installation checks
 
-No package marketplace/automatic binary updater, global kernel event stream, historical node telemetry collector, existing-token role editor, or OS-wide keyboard interception. Those are not faked with mock data in HTTP mode. Supervisor process CPU/memory are unavailable and shown as missing; API log timestamps represent retrieval time because the original supervisor keeps untimestamped lines. Core is Unix-only and relies on TLS reverse proxy/VPN for external access. Type trainer does not support IME; accuracy means correction ratio, not reference-text correctness. See each repository README for details.
+`.github/workflows/install-test.yml` installs published binaries and all plugin release packages on Linux/Windows, using paths with spaces and no Rust compilation. `scripts/verify-install.mjs` verifies file backend, typing ingestion, all plugin registrations and web HTTP. Consult the latest **Prebuilt installation smoke test** run for the release-specific result; compiling a Windows binary alone is not a claim of a completed Windows install test.
+
+## Boundaries
+
+- No hosted relay/NAT traversal, automatic data replication, automatic cross-backend migration or cryptographically signed release chain.
+- No system-wide event stream or historical CPU/memory collector. Supervisor per-process CPU/memory is unavailable, not invented. Untimestamped supervisor log lines use retrieval timestamps in the UI.
+- Plugins execute with current-user OS rights, not a sandbox. The official store is not an unrestricted third-party repository downloader.
+- Windows autostart is a current-user sign-in launcher, not a privileged pre-login Windows service. No macOS/Android prebuilt one-command installer is supplied.
+- No OS-wide keyboard interception; trainer is opt-in, aggregate-only and rejects IME/composition counting.
+- MCP is tool-only stateless Streamable HTTP with explicit bearer configuration; not OAuth/SSE/resource subscription support. Redaction is structural, not semantic removal of secrets from arbitrary log text.
+
+Private test credentials, database connection URLs, node state and session files remain outside Git and delivery archives. Commit messages and READMEs are English, authored by the repository owner's configured account.
