@@ -191,16 +191,16 @@
       "id": "dev.delta.web",
       "component": "web",
       "repository": "https://github.com/n-ycta/delta-web",
-      "version": "0.2.6",
-      "asset": "https://github.com/n-ycta/delta-web/releases/download/v0.2.6/delta-web.tar.gz",
-      "sha256": "c60279e3d63086dae74b3c169c75874c535ec223d1bae8cdd8f76a577d140463",
+      "version": "0.2.7",
+      "asset": "https://github.com/n-ycta/delta-web/releases/download/v0.2.7/delta-web.tar.gz",
+      "sha256": "0068274f67b0529ed64af3846f1864e6db4578531d4a3360c87e3683808daac5",
       "scopes": [
         "admin"
       ],
       "manifest": {
         "id": "dev.delta.web",
         "name": "Delta Web",
-        "version": "0.2.6",
+        "version": "0.2.7",
         "contract": "^1.4.0",
         "description": "A modular control panel for your nodes, data and automation.",
         "publisher": "Delta",
@@ -278,9 +278,9 @@
       "id": "dev.delta.type",
       "component": "typing",
       "repository": "https://github.com/n-ycta/delta_type",
-      "version": "0.3.0",
-      "asset": "https://github.com/n-ycta/delta_type/releases/download/v0.3.0/delta_type.tar.gz",
-      "sha256": "c144f4566a434d497f7f088fa0c20c0da6fa55cf421106e1c7cfc39a90ce7324",
+      "version": "0.3.1",
+      "asset": "https://github.com/n-ycta/delta_type/releases/download/v0.3.1/delta_type.tar.gz",
+      "sha256": "5b053cb5f4362084fe631b45f661291e630f4c1cf8eda529bbb7a0071fb396cd",
       "scopes": [
         "register:typing",
         "call:storage.write"
@@ -290,7 +290,7 @@
         "name": "Delta Type",
         "description": "Background Linux typing statistics with a separate optional trainer. Optional local physical-key history.",
         "publisher": "Delta",
-        "version": "0.3.0",
+        "version": "0.3.1",
         "contract": "^1.4.0",
         "icon": "keyboard",
         "category": "input",
@@ -375,6 +375,18 @@
           {
             "id": "clear_history",
             "label": "Clear local key history",
+            "dangerous": true
+          },
+          {
+            "id": "request_input_access",
+            "label": "Allow keyboard access",
+            "description": "The OS will ask for authorization on this Linux computer. Grant this service user read-only access to currently connected keyboards until device reconnect or reboot. This can expose all keystrokes, including passwords, to Type. The web console stays unprivileged. No input-group membership, broad device chmod, or permanent root helper is added.",
+            "dangerous": true
+          },
+          {
+            "id": "revoke_input_access",
+            "label": "Revoke granted keyboard access",
+            "description": "Approve the OS dialog on this node to undo keyboard ACL entries added by Type. Other OS grants are preserved.",
             "dangerous": true
           }
         ],
@@ -613,6 +625,18 @@
               {
                 "id": "clear_history",
                 "label": "Clear local key history",
+                "dangerous": true
+              },
+              {
+                "id": "request_input_access",
+                "label": "Allow keyboard access",
+                "description": "The OS will ask for authorization on this Linux computer. Grant this service user read-only access to currently connected keyboards until device reconnect or reboot. This can expose all keystrokes, including passwords, to Type. The web console stays unprivileged. No input-group membership, broad device chmod, or permanent root helper is added.",
+                "dangerous": true
+              },
+              {
+                "id": "revoke_input_access",
+                "label": "Revoke granted keyboard access",
+                "description": "Approve the OS dialog on this node to undo keyboard ACL entries added by Type. Other OS grants are preserved.",
                 "dangerous": true
               }
             ],
@@ -855,6 +879,18 @@
               {
                 "id": "clear_history",
                 "label": "Очистить локальную историю клавиш",
+                "dangerous": true
+              },
+              {
+                "id": "request_input_access",
+                "label": "Разрешить доступ к клавиатуре",
+                "description": "На этом Linux-компьютере появится системный запрос авторизации. Пользователь службы получит только чтение подключённых клавиатур до их переподключения или перезагрузки. Type сможет видеть все нажатия, включая пароли. Веб-панель останется без root-прав. Группа input, общие права устройств и постоянные root-службы не изменяются.",
+                "dangerous": true
+              },
+              {
+                "id": "revoke_input_access",
+                "label": "Отозвать выданный доступ к клавиатуре",
+                "description": "Подтвердите системное окно на узле, чтобы убрать ACL, выданные Type. Другие системные разрешения сохранятся.",
                 "dangerous": true
               }
             ],
