@@ -20,13 +20,18 @@ async fn install(k:Arc<Kernel>,p:Principal,item:Value)->Result<Value>{
  let root=k.config.home.join("plugins");std::fs::create_dir_all(&root).map_err(|e|DeltaError::unavailable(e.to_string()))?;
  let stage=root.join(format!(".stage-{}",random_hex(8)));std::fs::create_dir(&stage).map_err(|e|DeltaError::unavailable(e.to_string()))?;
  let dest=root.join(format!("{id}-{version}-{}",random_hex(4)));let s=stage.clone();
- let unpack=tokio::task::spawn_blocking(move||->std::io::Result<()>{let mut archive=tar::Archive::new(flate2::read::GzDecoder::new(bytes.as_slice()));let mut total=0u64;for e in archive.entries()?{let mut e=e?;let t=e.header().entry_type();if !t.is_file()&&!t.is_dir(){return Err(std::io::Error::other("Links and special entries are not allowed"))}total+=e.size();if total>150_000_000{return Err(std::io::Error::other("Unpacked package too large"))}if !e.unpack_in(&s)?{return Err(std::io::Error::other("Unsafe package path"))}}Ok(())}).await.map_err(|e|DeltaError::unavailable(e.to_string()))?;
+ let unpack=tokio::task::spawn_blocking(move||->std::io::Result<()>{let mut archive=tar::Archive::new(flate2::read::GzDecoder::new(bytes.as_slice()));let mut total=0u64;let mut entries=0;for e in archive.entries()?{entries+=1;if entries>50000{return Err(std::io::Error::other("Too many archive entries"))}let mut e=e?;let t=e.header().entry_type();if !t.is_file()&&!t.is_dir(){return Err(std::io::Error::other("Links and special entries are not allowed"))}total=total.checked_add(e.size()).ok_or_else(||std::io::Error::other("Invalid archive size"))?;if total>150_000_000{return Err(std::io::Error::other("Unpacked package too large"))}if !e.unpack_in(&s)?{return Err(std::io::Error::other("Unsafe package path"))}}Ok(())}).await.map_err(|e|DeltaError::unavailable(e.to_string()))?;
  if let Err(e)=unpack{let _=std::fs::remove_dir_all(&stage);return Err(DeltaError::bad_request(e.to_string()))}
  let manifest:Value=serde_json::from_slice(&std::fs::read(stage.join("manifest.json")).map_err(|e|DeltaError::bad_request(e.to_string()))?).map_err(|e|DeltaError::bad_request(e.to_string()))?;
  if manifest["id"]!=id||manifest["version"]!=version||manifest["metadata"]["ui"]["id"]!=item["id"]{return Err(DeltaError::forbidden("Manifest does not match release index"))}
- let npm=std::env::var("DELTA_NPM_BINARY").unwrap_or_else(|_|{let p=k.config.home.join("runtime").join(if cfg!(windows){"npm.cmd"}else{"bin/npm"});if p.exists(){p.to_string_lossy().into_owned()}else{"npm".into()}});
- #[cfg(windows)] let mut command={let mut c=tokio::process::Command::new("cmd.exe");c.args(["/D","/C",&npm]);c};
- #[cfg(not(windows))] let mut command=tokio::process::Command::new(&npm);
+ let node=std::env::var("DELTA_NODE_BINARY").unwrap_or_else(|_|{let p=k.config.home.join("runtime").join(if cfg!(windows){"node.exe"}else{"bin/node"});if p.exists(){p.to_string_lossy().into_owned()}else{"node".into()}});
+ let npm_cli=k.config.home.join("runtime").join(if cfg!(windows){"node_modules/npm/bin/npm-cli.js"}else{"lib/node_modules/npm/bin/npm-cli.js"});
+ let mut command=if npm_cli.exists(){let mut c=tokio::process::Command::new(&node);c.arg(npm_cli);c}else{
+  let npm=std::env::var("DELTA_NPM_BINARY").unwrap_or_else(|_|if cfg!(windows){"npm.cmd".into()}else{"npm".into()});
+  #[cfg(windows)] let c={let mut c=tokio::process::Command::new("cmd.exe");c.args(["/D","/C",&npm]);c};
+  #[cfg(not(windows))] let c=tokio::process::Command::new(&npm);
+  c
+ };
  let status=tokio::time::timeout(Duration::from_secs(300),command.args(["ci","--omit=dev","--ignore-scripts","--no-audit","--no-fund"]).current_dir(&stage).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).kill_on_drop(true).status()).await.map_err(|_|DeltaError::unavailable("Dependency install timed out"))?.map_err(|e|DeltaError::unavailable(format!("Node/npm runtime missing: {e}")))?;
  if !status.success(){let _=std::fs::remove_dir_all(stage);return Err(DeltaError::unavailable("Dependency installation failed"))}
  std::fs::rename(&stage,&dest).map_err(|e|DeltaError::unavailable(e.to_string()))?;
@@ -35,7 +40,7 @@ async fn install(k:Arc<Kernel>,p:Principal,item:Value)->Result<Value>{
  if old.is_some(){k.call("supervisor.remove",json!({"id":id}),&p,None).await?;}
  let data=k.config.home.join("data").join(id);let mut env=json!({"DATA_DIR":data,"DELTA_DATA":data});if let Some(o)=&old{env=serde_json::to_value(&o.env).unwrap();env["DATA_DIR"]=json!(data);env["DELTA_DATA"]=json!(data);}
  let scopes=item["scopes"].as_array().ok_or_else(||DeltaError::bad_request("Missing package scopes"))?;
- let result=k.call("supervisor.add",json!({"id":id,"command":[node,launch],"env":env,"scopes":scopes,"token_name":item["id"]}),&p,None).await;
+ let result=k.call("supervisor.add",json!({"id":id,"command":[node,launch],"env":env,"scopes":scopes,"token_name":old.as_ref().and_then(|o|o.token_name.clone()).map(Value::String).unwrap_or_else(||item["id"].clone())}),&p,None).await;
  if let Err(e)=result{if let Some(o)=old{let _=k.call("supervisor.add",serde_json::to_value(o).unwrap(),&p,None).await;}return Err(e)}
  for _ in 0..60{if k.component_list().iter().any(|c|c["id"]==id&&c["version"]==version){return Ok(json!({"installed":item["id"],"version":version}))}tokio::time::sleep(Duration::from_secs(1)).await;}
  let _=k.call("supervisor.remove",json!({"id":id}),&p,None).await;
