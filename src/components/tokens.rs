@@ -40,6 +40,7 @@ impl Component for Tokens {
     async fn handle(&self, capability: &str, args: Value, ctx: &CallContext) -> Result<Value> {
         match capability {
             "tokens.create" => {
+                if !ctx.principal.is_admin() { return Err(DeltaError::forbidden("creating tokens requires the global admin scope")); }
                 let name = args["name"].as_str().unwrap_or("");
                 let scopes: Vec<String> = args["scopes"]
                     .as_array()

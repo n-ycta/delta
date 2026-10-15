@@ -163,7 +163,7 @@ impl Component for Peers {
             cap(
                 "peers.join",
                 "Join another node using its URL and invite code",
-                json!({"url": s(true), "code": s(true)}),
+                json!({"url": s(true), "code": s(true), "trust_admin": {"type":"boolean"}}),
                 true,
                 false,
             ),
@@ -259,7 +259,7 @@ impl Component for Peers {
                     name: field("name"),
                     url: url.trim_end_matches('/').to_string(),
                     secret: field("secret"),
-                    scopes: vec!["call:*".into()],
+                    scopes: if args["trust_admin"].as_bool()==Some(true) { vec!["admin".into()] } else { vec!["call:*".into()] },
                     added: now(),
                 };
                 let out = json!({"node_id": rec.node_id, "name": rec.name, "url": url});

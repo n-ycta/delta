@@ -128,6 +128,7 @@ fn spawn_process(m: &mut Managed, kernel: &Arc<Kernel>, config: &Arc<Config>) {
         .env("DELTA_TOKEN", token)
         .env("DELTA_COMPONENT_ID", &id)
         .env("DELTA_NODE", &kernel.name)
+        .env("DELTA_NODE_ID", &kernel.node_id)
         .env("DELTA_DATA", &data_dir)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -345,7 +346,7 @@ impl Component for Supervisor {
         }
     }
 
-    async fn handle(&self, capability: &str, args: Value, _ctx: &CallContext) -> Result<Value> {
+    async fn handle(&self, capability: &str, args: Value, ctx: &CallContext) -> Result<Value> {
         let id = args.get("id").and_then(Value::as_str).unwrap_or("").to_string();
         match capability {
             "supervisor.list" => {
@@ -354,6 +355,7 @@ impl Component for Supervisor {
                 Ok(Value::Array(out))
             }
             "supervisor.add" => {
+                if !ctx.principal.is_admin() { return Err(DeltaError::forbidden("adding executable components requires global admin")); }
                 let command: Vec<String> = args["command"]
                     .as_array()
                     .map(|a| a.iter().map(|v| v.as_str().map(String::from).unwrap_or_else(|| v.to_string())).collect())

@@ -29,6 +29,9 @@ pub struct TokenRecord {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct IdentityKey { pub id: String, pub name: String, pub public_key: String, pub scopes: Vec<String>, pub created_at: f64 }
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct PeerRecord {
     pub node_id: String,
     pub name: String,
@@ -80,6 +83,8 @@ pub struct ManagedSpec {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(default)]
 pub struct ConfigData {
+    pub identity_keys: Vec<IdentityKey>,
+    pub identity_origins: Vec<String>,
     pub node_kind: String,
     pub node_id: String,
     pub name: String,
@@ -98,6 +103,8 @@ pub struct ConfigData {
 impl Default for ConfigData {
     fn default() -> Self {
         Self {
+            identity_keys: vec![],
+            identity_origins: vec!["http://127.0.0.1:7710".into(), "http://localhost:7710".into()],
             node_kind: "desktop".into(),
             node_id: String::new(),
             name: String::new(),

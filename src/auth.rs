@@ -57,9 +57,9 @@ impl Principal {
         if public || self.is_admin() {
             return true;
         }
-        if admin_only {
-            return false;
-        }
+        let scoped_admin = self.scopes.iter().any(|s| s.strip_prefix("admin:").map(|g| glob_match(g, capability)).unwrap_or(false));
+        if scoped_admin { return true; }
+        if admin_only { return false; }
         self.scopes
             .iter()
             .any(|s| s.strip_prefix("call:").map(|g| glob_match(g, capability)).unwrap_or(false))
@@ -89,7 +89,7 @@ pub fn new_token() -> String {
 
 pub fn valid_scope(s: &str) -> bool {
     s == "admin"
-        || ((s.starts_with("call:") || s.starts_with("register:"))
+        || ((s.starts_with("call:") || s.starts_with("register:") || s.starts_with("admin:"))
             && s.split_once(':').map(|(_, rest)| !rest.is_empty()).unwrap_or(false))
 }
 
@@ -135,6 +135,7 @@ impl TokenStore {
 
     pub fn set_expiry(&self, id: &str, expiry: Option<f64>) {
         self.config.update(|c| { if let Some(r) = c.tokens.iter_mut().find(|r| r.id == id) { r.expires_at = expiry; } });
+        for r in self.ephemeral.lock().unwrap().values_mut() { if r.id == id { r.expires_at = expiry; } }
     }
 
     pub fn revoke(&self, token_id: &str) -> bool {

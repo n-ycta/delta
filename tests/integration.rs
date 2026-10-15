@@ -160,3 +160,27 @@ fn cli_init_persists_node_kind() {
     assert_eq!(config["node_kind"], "vps");
     let _ = std::fs::remove_dir_all(home);
 }
+
+#[tokio::test]
+async fn signed_login_replay_revocation_and_scoped_admin() {
+    use k256::schnorr::{SigningKey,signature::Signer};
+    let n=TestNode::new("identity").await;
+    let key=SigningKey::from_bytes(&[7u8;32]).unwrap();
+    let pk=hex::encode(key.verifying_key().to_bytes());
+    let enrolled=n.admin.call("identity.enroll",json!({"public_key":pk,"name":"Laptop key","scopes":["call:system.ping"]}),None,None).await.unwrap();
+    let public=n.client(None);
+    assert_eq!(code_of(public.call("identity.challenge",json!({"public_key":pk,"audience":"https://evil.example"}),None,None).await).await,"forbidden");
+    let c=public.call("identity.challenge",json!({"public_key":pk,"audience":"http://localhost:7710"}),None,None).await.unwrap();
+    let sig:k256::schnorr::Signature=key.sign(c["message"].as_str().unwrap().as_bytes());
+    let a=json!({"nonce":c["nonce"],"signature":hex::encode(sig.to_bytes())});
+    let login=public.call("identity.login",a.clone(),None,None).await.unwrap();
+    assert_eq!(code_of(public.call("identity.login",a,None,None).await).await,"unauthorized");
+    let session=n.client(login["token"].as_str());
+    assert!(session.call("system.ping",json!({}),None,None).await.is_ok());
+    assert_eq!(code_of(session.call("core.info",json!({}),None,None).await).await,"forbidden");
+    n.admin.call("identity.remove",json!({"id":enrolled["id"]}),None,None).await.unwrap();
+    assert_eq!(code_of(session.call("system.ping",json!({}),None,None).await).await,"unauthorized");
+    let limited=n.admin.call("tokens.create",json!({"name":"MCP","scopes":["admin:tokens.create","admin:system.ping"]}),None,None).await.unwrap();
+    assert_eq!(code_of(n.client(limited["token"].as_str()).call("tokens.create",json!({"name":"escalate","scopes":["admin"]}),None,None).await).await,"forbidden");
+    n.close().await;
+}
