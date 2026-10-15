@@ -1,3 +1,4 @@
+import {stopPreviousNode} from './upgrade.mjs';
 // Installer orchestration; no package dependencies, no Rust toolchain.
 import {readFile,writeFile,mkdir,access} from 'node:fs/promises';import {resolve,dirname} from 'node:path';import {homedir,hostname,platform} from 'node:os';import {spawn,spawnSync} from 'node:child_process';import {randomBytes,createHash} from 'node:crypto';
 const argv=process.argv.slice(2),value=(k,d='')=>{const i=argv.indexOf(k);return i<0?d:argv[i+1]},has=k=>argv.includes(k);
@@ -13,6 +14,9 @@ url='http://127.0.0.1:'+config.port;
 const token=(await readFile(resolve(home,'admin.token'),'utf8')).trim();
 async function call(capability,args={}){const r=await fetch(url+'/v1/call',{method:'POST',headers:{authorization:'Bearer '+token,'content-type':'application/json'},body:JSON.stringify({capability,args})});const d=await r.json();if(!d.ok)throw Error(d.error?.message||'Delta request failed');return d.result;}
 async function online(){try{await call('core.info');return true;}catch{return false;}}
+const versionOutput=spawnSync(binary,['--version'],{encoding:'utf8'});
+const installedVersion=versionOutput.status===0?versionOutput.stdout.trim().split(/\s+/).at(-1):null;
+if(await online()){const running=await call('core.info');if(installedVersion&&running.version&&running.version!==installedVersion){console.log(`Updating running node ${running.version} → ${installedVersion}…`);await stopPreviousNode({home,binary,online});}}
 if(!await online()){
  let service=false;
  if(!has('--no-service')){const r=spawnSync(binary,['service','install'],{stdio:'inherit',env:process.env});service=r.status===0;}
@@ -21,8 +25,9 @@ if(!await online()){
  for(let i=0;i<30&&!await online();i++)await new Promise(r=>setTimeout(r,500));if(!await online())throw Error('Node did not start; inspect '+resolve(home,'node.log'));
 }
 const plugins=value('--plugins','storage,web').split(',').filter(p=>p&&p!=='none');if(plugins.includes('web')&&!plugins.includes('storage'))plugins.unshift('storage');
+const registry=plugins.length?await call('packages.catalog'):{plugins:[]};
 const ids={storage:'dev.delta.db',web:'dev.delta.web',typing:'dev.delta.type'};
-for(const plugin of plugins){if(!ids[plugin])throw Error('Unknown official plugin: '+plugin);const cs=await call('core.components');if(cs.some(c=>c.metadata?.ui?.id===ids[plugin])){console.log(plugin,'already installed');continue;}console.log('Installing',plugin,'from verified GitHub release…');const j=await call('packages.install',{id:ids[plugin]});let done=false;for(let i=0;i<480;i++){await new Promise(r=>setTimeout(r,1000));const jobs=await call('packages.jobs');const job=jobs.find(jj=>jj.id===j.jobId);if(job?.status==='failed')throw Error(job.error?.message||'Installation failed');if(job?.status==='complete'){done=true;break;}}if(!done)throw Error('Installation timed out; inspect packages.jobs');}
+for(const plugin of plugins){if(!ids[plugin])throw Error('Unknown official plugin: '+plugin);const cs=await call('core.components');const expected=registry.plugins.find(p=>p.id===ids[plugin]);if(!expected)throw Error('Official plugin missing from catalog: '+plugin);const current=cs.find(c=>c.metadata?.ui?.id===ids[plugin]);if(current?.version===expected.version){console.log(plugin,expected.version,'already installed');continue;}console.log('Installing',plugin,'from verified GitHub release…');const j=await call('packages.install',{id:ids[plugin]});let done=false;for(let i=0;i<480;i++){await new Promise(r=>setTimeout(r,1000));const jobs=await call('packages.jobs');const job=jobs.find(jj=>jj.id===j.jobId);if(job?.status==='failed')throw Error(job.error?.message||'Installation failed');if(job?.status==='complete'){done=true;break;}}if(!done)throw Error('Installation timed out; inspect packages.jobs');}
 if(value('--database-url')){const configPath=resolve(home,'config.json'),cfg=JSON.parse(await readFile(configPath,'utf8'));const spec=cfg.components.find(c=>c.id==='storage');if(!spec)throw Error('Install storage first');console.log('Set DATABASE_URL in the private node configuration, then restart storage. Do not pass database credentials on the command line.');throw Error('--database-url is not supported; use private config environment');}
 if(value('--join-url')){if(!value('--join-code')||!value('--public-url'))throw Error('Joining requires --join-code and --public-url');const hub=await call('peers.join',{url:value('--join-url'),code:value('--join-code'),trust_admin:has('--trust-hub')});console.log('Joined',hub.name,hub.node_id);}
 if(plugins.includes('web')||has('--open')){

@@ -5,7 +5,7 @@ param(
 )
 $ErrorActionPreference='Stop'
 if ($env:PROCESSOR_ARCHITECTURE -ne 'AMD64') { throw 'Windows x64 is required.' }
-$version=if($env:DELTA_VERSION){$env:DELTA_VERSION}else{'v0.3.1'}
+$version=if($env:DELTA_VERSION){$env:DELTA_VERSION}else{'v0.3.2'}
 $homeDir=if($env:DELTA_HOME){$env:DELTA_HOME}else{Join-Path $env:LOCALAPPDATA 'Delta'}
 $env:DELTA_HOME=$homeDir
 if($Choose){$choice=Read-Host 'Install [1] node + web, [2] node + web + typing, [3] bare node';$Plugins=switch($choice){'2'{'storage,web,typing'}'3'{'none'}default{'storage,web'}};$Choose=$false}
@@ -25,7 +25,7 @@ try {
  if (!$expected -or (Get-FileHash "$tmp/delta.tar.gz" -Algorithm SHA256).Hash.ToLower() -ne $expected) { throw 'Delta checksum mismatch' }
  tar -xzf "$tmp/delta.tar.gz" -C $tmp
  if($LASTEXITCODE -ne 0){throw 'Delta extraction failed'}
- Copy-Item "$tmp/delta.exe","$tmp/bootstrap.mjs" "$homeDir/bin" -Force
+ Copy-Item "$tmp/delta.exe","$tmp/bootstrap.mjs","$tmp/upgrade.mjs" "$homeDir/bin" -Force
  $nodeVersion='v24.14.1';$asset="node-$nodeVersion-win-x64.zip"
  Invoke-WebRequest "https://nodejs.org/dist/$nodeVersion/$asset" -OutFile "$tmp/node.zip"
  Invoke-WebRequest "https://nodejs.org/dist/$nodeVersion/SHASUMS256.txt" -OutFile "$tmp/node-sums"
