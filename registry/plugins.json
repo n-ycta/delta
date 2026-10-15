@@ -5,9 +5,9 @@
       "id": "dev.delta.db",
       "component": "storage",
       "repository": "https://github.com/n-ycta/delta_db",
-      "version": "0.3.1",
-      "asset": "https://github.com/n-ycta/delta_db/releases/download/v0.3.1/delta_db.tar.gz",
-      "sha256": "8beabbf6d4a96a3a3e177e1e1b1612acc72de6908c6b4157a06286371b112245",
+      "version": "0.4.0",
+      "asset": "https://github.com/n-ycta/delta_db/releases/download/v0.4.0/delta_db.tar.gz",
+      "sha256": "f8b97ec6b8942b1a4da27f91be70bf5d6715c94ea13d884d6b645b7962456b7d",
       "scopes": [
         "register:storage",
         "call:storage.*"
@@ -15,7 +15,7 @@
       "manifest": {
         "id": "dev.delta.db",
         "name": "Delta Storage",
-        "version": "0.3.1",
+        "version": "0.4.0",
         "contract": "^1.4.0",
         "publisher": "Delta",
         "description": "Unified storage with local files or PostgreSQL (TimescaleDB optional).",
@@ -30,9 +30,10 @@
         },
         "metrics": [],
         "capabilities": [
+          "actions",
           "storage.local",
-          "settings.read",
-          "status.read"
+          "status.read",
+          "settings.read"
         ],
         "repository": "https://github.com/n-ycta/delta_db",
         "defaultLocale": "en",
@@ -67,29 +68,50 @@
                 "key": "engine",
                 "type": "select",
                 "label": "Storage engine",
-                "default": "file",
+                "default": "postgres",
                 "options": [
                   {
-                    "value": "file",
-                    "label": "Local files (quick start)"
+                    "value": "postgres",
+                    "label": "PostgreSQL + TimescaleDB (automatic)"
                   },
                   {
-                    "value": "postgres",
-                    "label": "PostgreSQL (TimescaleDB optional)"
+                    "value": "file",
+                    "label": "Local files"
                   }
                 ]
               },
               {
+                "key": "useManagedPostgres",
+                "type": "boolean",
+                "default": true,
+                "label": "Manage local PostgreSQL automatically",
+                "help": "Uses an isolated loopback-only container and private credentials. Requires rootless Podman or Docker on this node."
+              },
+              {
                 "key": "databaseUrl",
                 "type": "secret",
-                "label": "PostgreSQL connection URL",
-                "help": "Stored privately on this node. Leave blank to retain the current connection."
+                "label": "External PostgreSQL URL (optional)",
+                "help": "Only for your own server. Turn off automatic management to use it. Blank retains the current connection."
               },
               {
                 "key": "confirmBackendChange",
                 "type": "boolean",
-                "label": "I understand that switching engines does not migrate existing data",
-                "default": false
+                "default": false,
+                "label": "Copy and verify data before switching storage",
+                "help": "Existing destination data is backed up before replacement. The source is retained. Do not stop the node during migration. Files support up to 100,000 records."
+              }
+            ],
+            "actions": [
+              {
+                "id": "retry_backend",
+                "label": "Retry database setup",
+                "description": "Retry the last authorized setup or migration; no source data is deleted."
+              },
+              {
+                "id": "prepare_runtime",
+                "label": "Prepare database runtime",
+                "description": "Linux: approve the native administrator prompt to install rootless Podman and dependencies from your distribution repositories and assign this user an unused subordinate UID/GID range. No root web service or docker-group access is added. Windows: install and start Docker Desktop; OS/WSL setup may require a restart.",
+                "dangerous": true
               }
             ]
           },
@@ -118,23 +140,42 @@
                 "label": "Движок хранения",
                 "options": [
                   {
-                    "value": "file",
-                    "label": "Локальные файлы"
+                    "value": "postgres",
+                    "label": "PostgreSQL + TimescaleDB (автоматически)"
                   },
                   {
-                    "value": "postgres",
-                    "label": "PostgreSQL (TimescaleDB необязателен)"
+                    "value": "file",
+                    "label": "Локальные файлы"
                   }
                 ]
               },
               {
+                "key": "useManagedPostgres",
+                "label": "Автоматически управлять локальным PostgreSQL",
+                "help": "Изолированный контейнер, доступ только с этого узла, приватный пароль. Нужен Podman без root или Docker."
+              },
+              {
                 "key": "databaseUrl",
-                "label": "Строка подключения PostgreSQL",
-                "help": "Хранится приватно на узле. Оставьте пустым, чтобы сохранить текущее подключение."
+                "label": "Внешний PostgreSQL (необязательно)",
+                "help": "Только для собственного сервера. Выключите автоматическое управление. Пустое поле сохраняет текущее подключение."
               },
               {
                 "key": "confirmBackendChange",
-                "label": "Я понимаю, что смена движка не переносит существующие данные"
+                "label": "Скопировать и проверить данные перед переключением",
+                "help": "Данные целевого хранилища сохраняются в резервной копии перед заменой. Исходное хранилище остаётся. Не выключайте узел во время переноса. Файлы вмещают до 100 000 записей."
+              }
+            ],
+            "actions": [
+              {
+                "id": "retry_backend",
+                "label": "Повторить настройку БД",
+                "description": "Повторить последнюю подтверждённую настройку или перенос. Исходные данные не удаляются."
+              },
+              {
+                "id": "prepare_runtime",
+                "label": "Подготовить среду БД",
+                "description": "Linux: подтвердите системный запрос администратора для установки Podman без root и зависимостей из репозиториев дистрибутива. Пользователю выделяется свободный диапазон дополнительных UID/GID. Веб не получает root или доступ к группе docker. Windows: установите и запустите Docker Desktop; настройка ОС/WSL может потребовать перезагрузки.",
+                "dangerous": true
               }
             ]
           }
@@ -156,51 +197,72 @@
             "key": "engine",
             "type": "select",
             "label": "Storage engine",
-            "default": "file",
+            "default": "postgres",
             "options": [
               {
-                "value": "file",
-                "label": "Local files (quick start)"
+                "value": "postgres",
+                "label": "PostgreSQL + TimescaleDB (automatic)"
               },
               {
-                "value": "postgres",
-                "label": "PostgreSQL (TimescaleDB optional)"
+                "value": "file",
+                "label": "Local files"
               }
             ]
           },
           {
+            "key": "useManagedPostgres",
+            "type": "boolean",
+            "default": true,
+            "label": "Manage local PostgreSQL automatically",
+            "help": "Uses an isolated loopback-only container and private credentials. Requires rootless Podman or Docker on this node."
+          },
+          {
             "key": "databaseUrl",
             "type": "secret",
-            "label": "PostgreSQL connection URL",
-            "help": "Stored privately on this node. Leave blank to retain the current connection."
+            "label": "External PostgreSQL URL (optional)",
+            "help": "Only for your own server. Turn off automatic management to use it. Blank retains the current connection."
           },
           {
             "key": "confirmBackendChange",
             "type": "boolean",
-            "label": "I understand that switching engines does not migrate existing data",
-            "default": false
+            "default": false,
+            "label": "Copy and verify data before switching storage",
+            "help": "Existing destination data is backed up before replacement. The source is retained. Do not stop the node during migration. Files support up to 100,000 records."
           }
         ],
         "endpoints": {
           "status": "storage.status",
           "settings": "storage.settings"
-        }
+        },
+        "actions": [
+          {
+            "id": "retry_backend",
+            "label": "Retry database setup",
+            "description": "Retry the last authorized setup or migration; no source data is deleted."
+          },
+          {
+            "id": "prepare_runtime",
+            "label": "Prepare database runtime",
+            "description": "Linux: approve the native administrator prompt to install rootless Podman and dependencies from your distribution repositories and assign this user an unused subordinate UID/GID range. No root web service or docker-group access is added. Windows: install and start Docker Desktop; OS/WSL setup may require a restart.",
+            "dangerous": true
+          }
+        ]
       }
     },
     {
       "id": "dev.delta.web",
       "component": "web",
       "repository": "https://github.com/n-ycta/delta-web",
-      "version": "0.3.1",
-      "asset": "https://github.com/n-ycta/delta-web/releases/download/v0.3.1/delta-web.tar.gz",
-      "sha256": "3a0e85b7772401518f5cbbf9b9ade2a0a3f09dbfe4c682728ffed17e7838b6af",
+      "version": "0.3.3",
+      "asset": "https://github.com/n-ycta/delta-web/releases/download/v0.3.3/delta-web.tar.gz",
+      "sha256": "040021b182482559d0b6a9687905fa10b4a8400e431b943d8c5018af9a97eff7",
       "scopes": [
         "admin"
       ],
       "manifest": {
         "id": "dev.delta.web",
         "name": "Delta Web",
-        "version": "0.3.1",
+        "version": "0.3.3",
         "contract": "^1.4.0",
         "description": "A modular control panel for your nodes, data and automation.",
         "publisher": "Delta",
@@ -281,9 +343,9 @@
       "id": "dev.delta.type",
       "component": "typing",
       "repository": "https://github.com/n-ycta/delta_type",
-      "version": "0.4.2",
-      "asset": "https://github.com/n-ycta/delta_type/releases/download/v0.4.2/delta_type.tar.gz",
-      "sha256": "2a890c5915df495534f216af93c4b739ba056c0b4bce0615853b69a8006e1d59",
+      "version": "0.4.3",
+      "asset": "https://github.com/n-ycta/delta_type/releases/download/v0.4.3/delta_type.tar.gz",
+      "sha256": "0daebd7f3be9727032366bf5e4afd718d6c4eeb9f9b2e559eae59723da023af5",
       "scopes": [
         "register:typing",
         "call:*.health",
@@ -297,7 +359,7 @@
         "name": "Delta Type",
         "description": "Background typing statistics, pause-aware speed and optional multilingual word frequencies. Replaceable storage; separate trainer.",
         "publisher": "Delta",
-        "version": "0.4.2",
+        "version": "0.4.3",
         "contract": "^1.4.0",
         "icon": "keyboard",
         "category": "input",
@@ -458,6 +520,12 @@
             "id": "clear_words",
             "label": "Clear stored word history",
             "description": "Delete all Type word-frequency records from the selected storage. Aggregate keystroke metrics are preserved.",
+            "dangerous": true
+          },
+          {
+            "id": "enable_word_collection",
+            "label": "Enable word collection",
+            "description": "Word dictionaries can include passwords and private words. Type stores word counts in the selected storage. Password fields cannot reliably be excluded. Enable only if you accept this collection.",
             "dangerous": true
           }
         ],
@@ -1070,6 +1138,11 @@
                 "label": "Clear stored word history",
                 "description": "Delete Type word frequencies from selected storage; keep aggregate keystroke metrics.",
                 "dangerous": true
+              },
+              {
+                "id": "enable_word_collection",
+                "label": "Enable word collection",
+                "description": "Word dictionaries can include passwords and private words. Type stores word counts in the selected storage. Password fields cannot reliably be excluded. Enable only if you accept this collection."
               }
             ],
             "metrics": [
@@ -1705,6 +1778,11 @@
                 "label": "Очистить историю слов",
                 "description": "Удалить всю частотность слов Type из выбранного хранилища. Метрики нажатий сохранятся.",
                 "dangerous": true
+              },
+              {
+                "id": "enable_word_collection",
+                "label": "Включить сбор слов",
+                "description": "Словарь может содержать пароли и личные слова. Type сохраняет слова с частотами в выбранном хранилище. Надёжно исключить парольные поля нельзя. Включайте только если согласны на такой сбор."
               }
             ],
             "metrics": [
