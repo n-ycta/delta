@@ -368,7 +368,9 @@ impl Kernel {
         *self.local_url.write().unwrap() = url;
     }
     pub fn set_ready(&self) {
-        let _ = self.ready_tx.send(true);
+        // send() drops the value if the spawned supervisor has not subscribed yet.
+        // Readiness is durable state, not a notification: retain it for late subscribers.
+        self.ready_tx.send_replace(true);
     }
     pub async fn wait_ready(&self) {
         let mut rx = self.ready_tx.subscribe();

@@ -205,3 +205,42 @@ async fn supervisor_restart_removes_stale_registration() {
     n.admin.request("POST", "/v1/components", Some(&manifest), None).await.unwrap();
     n.close().await;
 }
+
+#[tokio::test]
+async fn ready_state_survives_without_any_subscribers() {
+    let home = std::env::temp_dir().join(format!("delta-ready-{}", random_hex(4)));
+    let cfg = Arc::new(Config::new(home, default_config("late-ready", "127.0.0.1", 0, "")));
+    let kernel = delta::kernel::Kernel::new(cfg);
+    // The supervisor task may not subscribe until AFTER Node::start publishes readiness.
+    kernel.set_ready();
+    for _ in 0..3 {
+        tokio::time::timeout(Duration::from_millis(100), kernel.wait_ready())
+            .await.expect("readiness must remain true for late subscribers");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn late_supervisor_starts_real_process_after_node_is_ready() {
+    use delta::components::Supervisor;
+    let home = std::env::temp_dir().join(format!("delta-late-supervisor-{}", random_hex(4)));
+    let mut data = default_config("late-supervisor", "127.0.0.1", 0, "");
+    data.builtin.supervisor = false; // Guarantees no readiness subscribers during Node::start.
+    let cfg = Arc::new(Config::new(home.clone(), data)); cfg.save().unwrap();
+    let (token, _) = TokenStore::new(cfg.clone()).create("admin", &["admin".into()], true).unwrap();
+    let node = Node::start(cfg.clone(), Some(0)).await.unwrap();
+    node.kernel.add(Supervisor::new(cfg)).await.unwrap();
+    let client = Client::new(&format!("http://127.0.0.1:{}", node.port()), Some(token));
+    // The test binary's --list is a portable real child process on Linux and Windows.
+    client.call("supervisor.add", json!({"id":"readiness_probe","command":[std::env::current_exe().unwrap(),"--list"],"scopes":["register:readiness_probe"]}), None, None).await.unwrap();
+    let outcome = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let rows = client.call("supervisor.list", json!({}), None, None).await.unwrap();
+            if rows.as_array().unwrap().iter().any(|r| r["id"] == "readiness_probe" && !r["last_exit"].is_null()) { break; }
+            tokio::time::sleep(Duration::from_millis(30)).await;
+        }
+    }).await;
+    let logs = client.call("supervisor.logs", json!({"id":"readiness_probe"}), None, None).await.unwrap();
+    node.stop().await; let _ = std::fs::remove_dir_all(home);
+    assert!(outcome.is_ok(), "late supervisor never started its child process");
+    assert!(logs.as_array().unwrap().iter().any(|l| l.as_str().unwrap_or("").contains("health_open_and_anonymous_rejected")), "real child must produce test-list output");
+}
