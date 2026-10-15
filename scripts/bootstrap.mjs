@@ -3,10 +3,13 @@ import {readFile,writeFile,mkdir,access} from 'node:fs/promises';import {resolve
 const argv=process.argv.slice(2),value=(k,d='')=>{const i=argv.indexOf(k);return i<0?d:argv[i+1]},has=k=>argv.includes(k);
 const home=process.env.DELTA_HOME|| (platform()==='win32'?resolve(process.env.LOCALAPPDATA||homedir(),'Delta'):resolve(homedir(),'.delta'));
 process.env.DELTA_HOME=home;process.env.DELTA_NODE_BINARY=process.execPath;
-const binary=resolve(home,'bin',platform()==='win32'?'delta.exe':'delta'),url='http://127.0.0.1:'+value('--port','7700');
+const binary=resolve(home,'bin',platform()==='win32'?'delta.exe':'delta');
+let url='http://127.0.0.1:'+value('--port','7700');
 await mkdir(home,{recursive:true,mode:0o700});
 const run=args=>{const r=spawnSync(binary,args,{stdio:'inherit',env:process.env});if(r.status!==0)throw Error('Delta command failed: '+args[0]);};
 try{await access(resolve(home,'config.json'))}catch{run(['init','--name',value('--name',hostname()),'--listen',value('--listen','127.0.0.1'),'--port',value('--port','7700'),...(value('--public-url')?['--url',value('--public-url')]:[])]);}
+const config=JSON.parse(await readFile(resolve(home,'config.json'),'utf8'));
+url='http://127.0.0.1:'+config.port;
 const token=(await readFile(resolve(home,'admin.token'),'utf8')).trim();
 async function call(capability,args={}){const r=await fetch(url+'/v1/call',{method:'POST',headers:{authorization:'Bearer '+token,'content-type':'application/json'},body:JSON.stringify({capability,args})});const d=await r.json();if(!d.ok)throw Error(d.error?.message||'Delta request failed');return d.result;}
 async function online(){try{await call('core.info');return true;}catch{return false;}}

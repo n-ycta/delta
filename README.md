@@ -107,3 +107,12 @@ cargo build --release --locked
 [API and architecture](docs/platform.md) · [Apache 2.0 license](LICENSE)
 
 CI tests native Linux and Windows. Release assets target Linux x64/ARM64 (musl) and Windows x64. macOS/Android do not have a one-command prebuilt installer in this release.
+
+
+### Installer failure diagnostics
+
+An existing installation is reused only when its `bin/release-version` matches the requested release; legacy installs without that marker are refreshed with checksum verification. `DELTA_FORCE_DOWNLOAD=1` still forces a download. Bootstrap reads the configured core port on repeat installation. The Linux user unit explicitly selects the private Node runtime, without depending on an interactive shell's PATH.
+
+If a plugin does not register within 60 seconds, package installation saves its process state and recent logs to a random private file under `data/package-diagnostics/` **before** rollback. The API returns the file location, not the logs. Treat diagnostic contents as sensitive; redact before sharing. A diagnostic write failure does not block rollback. Package jobs include `startedAt` so clients can choose the latest attempt, rather than sorting random job IDs.
+
+Run `node --test tests/installer.test.mjs` alongside `cargo test --locked` to check bootstrap port selection and stale installer reuse. Release binaries and the package index must be rebuilt/versioned together; editing source alone does not update the installed prebuilt runtime.
