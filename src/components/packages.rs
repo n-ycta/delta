@@ -20,6 +20,9 @@ fn save_diagnostic(home:&std::path::Path,id:&str,value:&Value)->Option<std::path
  #[cfg(unix)] {use std::os::unix::fs::OpenOptionsExt;options.mode(0o600);}
  use std::io::Write;options.open(&path).ok()?.write_all(&serde_json::to_vec_pretty(value).ok()?).ok()?;Some(path)
 }
+fn checked_item(item:&Value,args:&Value)->Result<()> {
+ if args.get("expectedVersion").and_then(Value::as_str).map(|v|item["version"]!=v).unwrap_or(false)||args.get("expectedSha256").and_then(Value::as_str).map(|v|item["sha256"]!=v).unwrap_or(false){return Err(DeltaError::conflict("The official catalog changed; check for updates again"))} Ok(())
+}
 async fn catalog()->Result<Value>{serde_json::from_slice(&download(INDEX,2_000_000).await?).map_err(|_|DeltaError::bad_request("Invalid plugin index"))}
 async fn install(k:Arc<Kernel>,p:Principal,item:Value)->Result<Value>{
  let id=item["component"].as_str().unwrap_or("");if !crate::util::valid_id(id){return Err(DeltaError::bad_request("Invalid package component"))}
@@ -49,8 +52,9 @@ async fn install(k:Arc<Kernel>,p:Principal,item:Value)->Result<Value>{
  if old.is_some(){k.call("supervisor.remove",json!({"id":id}),&p,None).await?;}
  let data=k.config.home.join("data").join(id);let mut env=json!({"DATA_DIR":data,"DELTA_DATA":data});if let Some(o)=&old{env=serde_json::to_value(&o.env).unwrap();env["DATA_DIR"]=json!(data);env["DELTA_DATA"]=json!(data);}
  let scopes=item["scopes"].as_array().ok_or_else(||DeltaError::bad_request("Missing package scopes"))?;
- let result=k.call("supervisor.add",json!({"id":id,"command":[node,launch],"env":env,"scopes":scopes,"token_name":old.as_ref().and_then(|o|o.token_name.clone()).map(Value::String).unwrap_or_else(||item["id"].clone())}),&p,None).await;
+ let result=k.call("supervisor.add",json!({"id":id,"command":[node,launch],"env":env,"enabled":old.as_ref().map(|o|o.enabled).unwrap_or(true),"scopes":scopes,"token_name":old.as_ref().and_then(|o|o.token_name.clone()).map(Value::String).unwrap_or_else(||item["id"].clone())}),&p,None).await;
  if let Err(e)=result{if let Some(o)=old{let _=k.call("supervisor.add",serde_json::to_value(o).unwrap(),&p,None).await;}return Err(e)}
+ if old.as_ref().map(|o|!o.enabled).unwrap_or(false){return Ok(json!({"installed":item["id"],"version":version,"enabled":false}))}
  for _ in 0..60{if k.component_list().iter().any(|c|c["id"]==id&&c["version"]==version){return Ok(json!({"installed":item["id"],"version":version}))}tokio::time::sleep(Duration::from_secs(1)).await;}
  // Capture diagnostics BEFORE removing the managed process (which drops its log).
  // Keep potentially sensitive process output out of API errors and job responses.
@@ -65,17 +69,25 @@ async fn install(k:Arc<Kernel>,p:Principal,item:Value)->Result<Value>{
 }
 #[async_trait]impl Component for Packages{
  fn id(&self)->&str{"packages"}fn version(&self)->String{"0.3.0".into()}
- fn capabilities(&self)->Vec<CapSpec>{vec![cap("packages.catalog","Browse official GitHub release packages",json!({}),false,false),cap("packages.install","Install or update a verified official package",json!({"id":{"type":"string","required":true}}),true,false),cap("packages.jobs","Read installation job status",json!({}),true,false)]}
+ fn capabilities(&self)->Vec<CapSpec>{vec![cap("packages.catalog","Browse official GitHub release packages",json!({}),false,false),cap("packages.install","Install or update a verified official package",json!({"id":{"type":"string","required":true},"expectedVersion":{"type":"string"},"expectedSha256":{"type":"string"}}),true,false),cap("packages.jobs","Read installation job status",json!({}),true,false)]}
  async fn handle(&self,c:&str,a:Value,ctx:&CallContext)->Result<Value>{match c{
  "packages.catalog"=>catalog().await,
  "packages.jobs"=>Ok(json!(self.jobs.lock().unwrap().values().cloned().collect::<Vec<_>>())),
  "packages.install"=>{if !ctx.principal.is_admin(){return Err(DeltaError::forbidden("Installing executable packages requires global admin"))}let index=catalog().await?;let item=index["plugins"].as_array().and_then(|items|items.iter().find(|v|v["id"]==a["id"])).cloned().ok_or_else(||DeltaError::not_found("Package not in official index"))?;
+ checked_item(&item,&a)?;
  let id=random_hex(12);{let mut jobs=self.jobs.lock().unwrap();if jobs.values().any(|j|j["status"]=="installing"){return Err(DeltaError::conflict("Another installation is running"))}if jobs.len()>100{jobs.clear()}jobs.insert(id.clone(),json!({"id":id,"pluginId":a["id"],"status":"installing","startedAt":crate::util::now()}));}
  let jobs=self.jobs.clone();let k=ctx.kernel.clone();let p=ctx.principal.clone();let jid=id.clone();tokio::spawn(async move{let r=install(k,p,item).await;let mut jobs=jobs.lock().unwrap();let job=jobs.get_mut(&jid).unwrap();match r{Ok(v)=>{job["status"]=json!("complete");job["result"]=v},Err(e)=>{job["status"]=json!("failed");job["error"]=json!({"code":e.code,"message":e.message})}}});Ok(json!({"jobId":id,"status":"installing"}))},_=>Err(DeltaError::not_found("Unknown package operation"))}}
 }
 
 #[cfg(test)] mod tests {
  use super::*;
+ #[test] fn checked_release_guards_prevent_catalog_races(){
+  let item=json!({"version":"1.2.3","sha256":"abc"});
+  assert!(checked_item(&item,&json!({})).is_ok());
+  assert!(checked_item(&item,&json!({"expectedVersion":"1.2.3","expectedSha256":"abc"})).is_ok());
+  assert!(checked_item(&item,&json!({"expectedVersion":"1.2.4"})).is_err());
+  assert!(checked_item(&item,&json!({"expectedSha256":"different"})).is_err());
+ }
  #[test] fn diagnostics_are_private_and_best_effort(){
   let home=std::env::temp_dir().join(format!("delta-diagnostic-{}",random_hex(8)));
   let path=save_diagnostic(&home,"storage",&json!({"logs":["private test output"]})).unwrap();
