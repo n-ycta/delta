@@ -44,6 +44,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           merge-multiple: true
@@ -53,5 +54,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           TAG: ${{ inputs.tag || github.ref_name }}
         run: |
-          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "Delta ${TAG#v}" --notes "Prebuilt Linux and Windows node binaries. Verify SHA256SUMS before installation."
+          python3 scripts/release-notes.py "$TAG" > release-notes.md
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "Delta ${TAG#v}" --notes-file release-notes.md
+          gh release edit "$TAG" --notes-file release-notes.md
           gh release upload "$TAG" *.tar.gz SHA256SUMS --clobber
