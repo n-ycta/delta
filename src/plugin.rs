@@ -29,6 +29,7 @@ pub struct Plugin {
     description: String,
     handlers: HashMap<String, Handler>,
     specs: Vec<CapSpec>,
+    metadata: Value,
 }
 
 impl Plugin {
@@ -39,8 +40,12 @@ impl Plugin {
             description: description.into(),
             handlers: HashMap::new(),
             specs: vec![],
+            metadata: json!({}),
         }
     }
+
+    /// Optional declarative UI and data contract (never executable code).
+    pub fn metadata(mut self, value: Value) -> Self { self.metadata = value; self }
 
     /// Register `<id>.<name>`. The handler gets (args, caller).
     pub fn capability<F, Fut>(mut self, name: &str, description: &str, params: Value, admin: bool, f: F) -> Self
@@ -58,7 +63,7 @@ impl Plugin {
     pub fn manifest(&self) -> Value {
         json!({
             "id": self.id, "version": self.version, "description": self.description,
-            "capabilities": self.specs,
+            "capabilities": self.specs, "metadata": self.metadata,
         })
     }
 

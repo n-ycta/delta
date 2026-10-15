@@ -22,7 +22,7 @@ impl Component for Tokens {
             cap(
                 "tokens.create",
                 "Create a token. Scopes: admin, call:<glob>, register:<glob>",
-                json!({"name": {"type": "string", "required": true}, "scopes": {"type": "array", "required": true}}),
+                json!({"name": {"type": "string", "required": true}, "scopes": {"type": "array", "required": true}, "ttl_seconds": {"type": "integer"}}),
                 true,
                 false,
             ),
@@ -45,12 +45,18 @@ impl Component for Tokens {
                     .as_array()
                     .map(|a| a.iter().map(|s| s.as_str().map(String::from).unwrap_or_else(|| s.to_string())).collect())
                     .unwrap_or_default();
+                let ttl = args.get("ttl_seconds").and_then(Value::as_u64);
+                if args.get("ttl_seconds").is_some() && (ttl.is_none() || ttl == Some(0) || ttl.unwrap_or(0) > 315360000) {
+                    return Err(DeltaError::bad_request("ttl_seconds must be 1..315360000"));
+                }
                 let (token, rec) = ctx
                     .kernel
                     .tokens
                     .create(name, &scopes, true)
                     .map_err(DeltaError::bad_request)?;
-                Ok(json!({"id": rec.id, "name": rec.name, "scopes": rec.scopes, "token": token}))
+                let expires = ttl.map(|t| crate::util::now() + t as f64);
+                ctx.kernel.tokens.set_expiry(&rec.id, expires);
+                Ok(json!({"id": rec.id, "name": rec.name, "scopes": rec.scopes, "token": token, "created_at": rec.created_at, "expires_at": expires}))
             }
             "tokens.list" => Ok(Value::Array(ctx.kernel.tokens.list())),
             "tokens.revoke" => {

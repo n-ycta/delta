@@ -67,6 +67,7 @@ pub trait Component: Send + Sync {
     fn kind(&self) -> &'static str {
         "builtin"
     }
+    fn metadata(&self) -> Value { json!({}) }
     fn capabilities(&self) -> Vec<CapSpec>;
     async fn handle(&self, capability: &str, args: Value, ctx: &CallContext) -> Result<Value>;
     fn start(&self, _kernel: &Arc<Kernel>) {}
@@ -128,6 +129,7 @@ pub struct ExternalComponent {
     pub session: String,
     pub owner: String,
     caps: Vec<CapSpec>,
+    metadata: Value,
     tx: mpsc::UnboundedSender<Value>,
     rx: tokio::sync::Mutex<mpsc::UnboundedReceiver<Value>>,
     pending: Mutex<HashMap<String, oneshot::Sender<Value>>>,
@@ -170,6 +172,7 @@ impl ExternalComponent {
             session: crate::util::random_hex(12),
             owner,
             caps,
+            metadata: manifest.get("metadata").filter(|v| v.is_object()).cloned().unwrap_or_else(empty_obj),
             tx,
             rx: tokio::sync::Mutex::new(rx),
             pending: Mutex::new(HashMap::new()),
@@ -233,6 +236,7 @@ impl Component for ExternalComponent {
     fn kind(&self) -> &'static str {
         "external"
     }
+    fn metadata(&self) -> Value { self.metadata.clone() }
     fn capabilities(&self) -> Vec<CapSpec> {
         self.caps.clone()
     }
@@ -454,6 +458,7 @@ impl Kernel {
                 json!({
                     "id": e.comp.id(), "version": e.comp.version(), "description": e.comp.description(),
                     "kind": e.comp.kind(), "capabilities": e.comp.capabilities().len(),
+                    "metadata": e.comp.metadata(),
                 })
             })
             .collect()

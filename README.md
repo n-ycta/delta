@@ -28,6 +28,11 @@ peers, supervisor), `node.rs` (assembly), `main.rs` (CLI).
 * Python's unit tests are not ported 1:1; `tests/integration.rs` covers auth, scopes, validation,
   an external plugin and two-node pairing/routing.
 
-## Status
-Written without a Rust toolchain available: **not compiled yet**. First step: `cargo build`
-and fix whatever the compiler reports.
+## Verified build and additions (0.2.0)
+Built and integration-tested on Linux with Rust stable. External components can publish optional
+`metadata.ui` manifests, returned by `core.components`; caller identity includes scopes for
+safe plugin-side delegation. Tokens support `ttl_seconds`; expiration is checked on every request.
+`system.info.cpu_usage` is a sampled Linux CPU percentage (null on unsupported hosts).
+
+Core and node remain one Rust executable. Web, storage and typing are independent repositories,
+connected via the existing protocol; no SQL/UI libraries are linked into the core.

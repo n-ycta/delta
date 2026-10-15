@@ -75,7 +75,7 @@ impl Principal {
     }
 
     pub fn to_value(&self) -> Value {
-        json!({"kind": self.kind.as_str(), "name": self.name, "peer_id": self.peer_id})
+        json!({"kind": self.kind.as_str(), "name": self.name, "peer_id": self.peer_id, "scopes": self.scopes})
     }
 }
 
@@ -121,6 +121,8 @@ impl TokenStore {
             name: name.to_string(),
             hash: hash_token(&token),
             scopes: scopes.to_vec(),
+            created_at: crate::util::now(),
+            expires_at: None,
         };
         if persist {
             let r = rec.clone();
@@ -129,6 +131,10 @@ impl TokenStore {
             self.ephemeral.lock().unwrap().insert(rec.hash.clone(), rec.clone());
         }
         Ok((token, rec))
+    }
+
+    pub fn set_expiry(&self, id: &str, expiry: Option<f64>) {
+        self.config.update(|c| { if let Some(r) = c.tokens.iter_mut().find(|r| r.id == id) { r.expires_at = expiry; } });
     }
 
     pub fn revoke(&self, token_id: &str) -> bool {
@@ -150,12 +156,12 @@ impl TokenStore {
         let mut out: Vec<Value> = self.config.read(|c| {
             c.tokens
                 .iter()
-                .map(|t| json!({"id": t.id, "name": t.name, "scopes": t.scopes, "persistent": true}))
+                .map(|t| json!({"id": t.id, "name": t.name, "scopes": t.scopes, "persistent": true, "created_at": t.created_at, "expires_at": t.expires_at}))
                 .collect()
         });
         let eph = self.ephemeral.lock().unwrap();
         out.extend(
-            eph.values().map(|t| json!({"id": t.id, "name": t.name, "scopes": t.scopes, "persistent": false})),
+            eph.values().map(|t| json!({"id": t.id, "name": t.name, "scopes": t.scopes, "persistent": false, "created_at": t.created_at, "expires_at": t.expires_at})),
         );
         out
     }
@@ -165,6 +171,7 @@ impl TokenStore {
         let mut recs: Vec<TokenRecord> = self.config.read(|c| c.tokens.clone());
         recs.extend(self.ephemeral.lock().unwrap().values().cloned());
         for r in recs {
+            if r.expires_at.map(|t| t <= crate::util::now()).unwrap_or(false) { continue; }
             if ct_eq(r.hash.as_bytes(), h.as_bytes()) {
                 let kind = if r.scopes.iter().any(|s| s == "admin") { Kind::Admin } else { Kind::Token };
                 return Some(Principal { kind, name: r.name, scopes: r.scopes, peer_id: String::new() });

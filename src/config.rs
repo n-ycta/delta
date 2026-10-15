@@ -22,6 +22,10 @@ pub struct TokenRecord {
     pub name: String,
     pub hash: String,
     pub scopes: Vec<String>,
+    #[serde(default)]
+    pub created_at: f64,
+    #[serde(default)]
+    pub expires_at: Option<f64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

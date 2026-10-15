@@ -6,6 +6,17 @@ use serde_json::{json, Value};
 use std::ffi::{CStr, CString};
 
 pub struct System;
+async fn cpu_usage() -> Value {
+    fn sample() -> Option<(u64,u64)> {
+        let text = std::fs::read_to_string("/proc/stat").ok()?;
+        let fields: Vec<u64> = text.lines().next()?.split_whitespace().skip(1).take(8).filter_map(|s| s.parse().ok()).collect();
+        if fields.len() < 5 { return None; }
+        Some((fields.iter().sum(),fields[3] + fields[4]))
+    }
+    let first = sample(); tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    match (first,sample()) { (Some((a,b)),Some((c,d))) if c>a => json!((100.0 * (1.0 - (d-b) as f64 / (c-a) as f64)).clamp(0.0,100.0)), _ => Value::Null }
+}
+
 
 fn memory() -> Value {
     if let Ok(text) = std::fs::read_to_string("/proc/meminfo") {
@@ -112,6 +123,7 @@ impl Component for System {
                     "runtime": "rust",
                     "cpu_count": std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1),
                     "load": load(),
+                    "cpu_usage": cpu_usage().await,
                     "memory": memory(),
                     "disk": disk(),
                     "uptime": uptime(),
