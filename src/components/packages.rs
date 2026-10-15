@@ -24,13 +24,13 @@ async fn install(k:Arc<Kernel>,p:Principal,item:Value)->Result<Value>{
  if let Err(e)=unpack{let _=std::fs::remove_dir_all(&stage);return Err(DeltaError::bad_request(e.to_string()))}
  let manifest:Value=serde_json::from_slice(&std::fs::read(stage.join("manifest.json")).map_err(|e|DeltaError::bad_request(e.to_string()))?).map_err(|e|DeltaError::bad_request(e.to_string()))?;
  if manifest["id"]!=id||manifest["version"]!=version||manifest["metadata"]["ui"]["id"]!=item["id"]{return Err(DeltaError::forbidden("Manifest does not match release index"))}
- let npm=std::env::var("DELTA_NPM_BINARY").unwrap_or_else(|_|if cfg!(windows){"npm.cmd".into()}else{"npm".into()});
+ let npm=std::env::var("DELTA_NPM_BINARY").unwrap_or_else(|_|{let p=k.config.home.join("runtime").join(if cfg!(windows){"npm.cmd"}else{"bin/npm"});if p.exists(){p.to_string_lossy().into_owned()}else{"npm".into()}});
  #[cfg(windows)] let mut command={let mut c=tokio::process::Command::new("cmd.exe");c.args(["/D","/C",&npm]);c};
  #[cfg(not(windows))] let mut command=tokio::process::Command::new(&npm);
  let status=tokio::time::timeout(Duration::from_secs(300),command.args(["ci","--omit=dev","--ignore-scripts","--no-audit","--no-fund"]).current_dir(&stage).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).kill_on_drop(true).status()).await.map_err(|_|DeltaError::unavailable("Dependency install timed out"))?.map_err(|e|DeltaError::unavailable(format!("Node/npm runtime missing: {e}")))?;
  if !status.success(){let _=std::fs::remove_dir_all(stage);return Err(DeltaError::unavailable("Dependency installation failed"))}
  std::fs::rename(&stage,&dest).map_err(|e|DeltaError::unavailable(e.to_string()))?;
- let node=std::env::var("DELTA_NODE_BINARY").unwrap_or_else(|_|"node".into());let launch=dest.join("launch.mjs");let cwd=serde_json::to_string(&dest.to_string_lossy()).unwrap();std::fs::write(&launch,format!("process.chdir({cwd});await import('./server/main.mjs');")).map_err(|e|DeltaError::unavailable(e.to_string()))?;
+ let node=std::env::var("DELTA_NODE_BINARY").unwrap_or_else(|_|{let p=k.config.home.join("runtime").join(if cfg!(windows){"node.exe"}else{"bin/node"});if p.exists(){p.to_string_lossy().into_owned()}else{"node".into()}});let launch=dest.join("launch.mjs");let cwd=serde_json::to_string(&dest.to_string_lossy()).unwrap();std::fs::write(&launch,format!("process.chdir({cwd});await import('./server/main.mjs');")).map_err(|e|DeltaError::unavailable(e.to_string()))?;
  let old=k.config.read(|c|c.components.iter().find(|m|m.id==id).cloned());
  if old.is_some(){k.call("supervisor.remove",json!({"id":id}),&p,None).await?;}
  let data=k.config.home.join("data").join(id);let mut env=json!({"DATA_DIR":data,"DELTA_DATA":data});if let Some(o)=&old{env=serde_json::to_value(&o.env).unwrap();env["DATA_DIR"]=json!(data);env["DELTA_DATA"]=json!(data);}

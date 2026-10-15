@@ -503,9 +503,7 @@ impl Kernel {
                 return Err(DeltaError::not_found(format!("unknown node {node}")));
             };
             // local authorization first; the remote node authorizes us again as a peer
-            let admin_only = if let Some((_, meta)) = self.find(capability) { meta.admin } else {
-                router.remote_catalog().await.iter().find(|v| v["name"] == capability && (v["node"] == node || v["node_name"] == node)).and_then(|v| v["admin"].as_bool()).unwrap_or(true)
-            };
+            let admin_only = router.remote_catalog().await.iter().find(|v| v["name"] == capability && (v["node"] == node || v["node_name"] == node)).and_then(|v| v["admin"].as_bool()).unwrap_or(true);
             if !principal.can_call(capability, admin_only, false) {
                 return Err(DeltaError::forbidden(format!("not allowed to call {capability}")));
             }

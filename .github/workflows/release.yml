@@ -1,0 +1,57 @@
+name: Release node binaries
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag
+        required: true
+        default: v0.3.0
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-latest, target: x86_64-unknown-linux-musl, platform: linux-x64}
+          - {os: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl, platform: linux-arm64}
+          - {os: windows-latest, target: x86_64-pc-windows-msvc, platform: windows-x64}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - run: cargo test --locked
+      - run: cargo build --release --locked --target ${{ matrix.target }}
+      - shell: bash
+        run: |
+          mkdir -p bundle
+          cp target/${{ matrix.target }}/release/delta* bundle/
+          rm -f bundle/*.d bundle/*.pdb
+          cp LICENSE NOTICE scripts/bootstrap.mjs bundle/
+          tar -czf delta-${{ matrix.platform }}.tar.gz -C bundle .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: delta-${{ matrix.platform }}
+          path: delta-${{ matrix.platform }}.tar.gz
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - run: sha256sum *.tar.gz > SHA256SUMS
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "Delta ${TAG#v}" --notes "Prebuilt Linux and Windows node binaries. Verify SHA256SUMS before installation."
+          gh release upload "$TAG" *.tar.gz SHA256SUMS --clobber
