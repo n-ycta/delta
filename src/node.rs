@@ -89,6 +89,7 @@ impl Node {
     }
 }
 
+#[cfg(unix)]
 async fn wait_for_signal() {
     use tokio::signal::unix::{signal, SignalKind};
     match signal(SignalKind::terminate()) {
@@ -103,3 +104,6 @@ async fn wait_for_signal() {
         }
     }
 }
+
+#[cfg(not(unix))]
+async fn wait_for_signal() { let _ = tokio::signal::ctrl_c().await; }

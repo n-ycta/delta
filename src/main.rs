@@ -153,14 +153,9 @@ fn cmd_init(kind: String, name: String, listen: String, port: u16, url: String, 
         .unwrap_or_else(|e| die(e));
     let tf: PathBuf = home.join("admin.token");
     {
-        use std::os::unix::fs::OpenOptionsExt;
-        let mut f = std::fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .mode(0o600)
-            .open(&tf)
-            .unwrap_or_else(|e| die(format!("cannot write admin token: {e}")));
+        let mut options = std::fs::OpenOptions::new(); options.write(true).create(true).truncate(true);
+        #[cfg(unix)] { use std::os::unix::fs::OpenOptionsExt; options.mode(0o600); }
+        let mut f = options.open(&tf).unwrap_or_else(|e| die(format!("cannot write admin token: {e}")));
         let _ = writeln!(f, "{token}");
     }
     let (n, id, l, p, u) = cfg.read(|c| (c.name.clone(), c.node_id.clone(), c.listen.clone(), c.port, c.url.clone()));
@@ -389,6 +384,16 @@ fn cmd_service(action: &str) {
                 let _ = std::fs::remove_file(&plist);
                 println!("Service removed");
             }
+        }
+        "windows" => {
+            let appdata = PathBuf::from(std::env::var_os("APPDATA").unwrap_or_default());
+            let launcher = appdata.join("Microsoft/Windows/Start Menu/Programs/Startup/DeltaNode.cmd");
+            if action == "install" {
+                if let Some(parent) = launcher.parent() { std::fs::create_dir_all(parent).unwrap_or_else(|e| die(e)); }
+                let script = format!("@echo off\r\nset \"DELTA_HOME={home}\"\r\nstart \"\" /B \"{exe}\" run\r\n");
+                std::fs::write(&launcher, script).unwrap_or_else(|e| die(e));
+                println!("Installed current-user startup launcher {}", launcher.display());
+            } else { let _ = std::fs::remove_file(&launcher); println!("Startup launcher removed"); }
         }
         other => die(format!("service management is not supported on {other}; run `delta run` instead")),
     }

@@ -121,19 +121,10 @@ pub fn delta_home() -> PathBuf {
             return PathBuf::from(h);
         }
     }
-    std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from(".")).join(".delta")
+    if cfg!(windows) { std::env::var_os("LOCALAPPDATA").or_else(|| std::env::var_os("USERPROFILE")).map(PathBuf::from).unwrap_or_else(|| PathBuf::from(".")).join("Delta") } else { std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from(".")).join(".delta") }
 }
 
-fn hostname() -> String {
-    let mut buf = [0u8; 256];
-    // SAFETY: buffer is valid for buf.len() bytes
-    let rc = unsafe { libc::gethostname(buf.as_mut_ptr() as *mut libc::c_char, buf.len()) };
-    if rc != 0 {
-        return String::new();
-    }
-    let end = buf.iter().position(|&b| b == 0).unwrap_or(buf.len());
-    String::from_utf8_lossy(&buf[..end]).split('.').next().unwrap_or("").to_string()
-}
+fn hostname() -> String { sysinfo::System::host_name().unwrap_or_else(|| "node".into()) }
 
 fn guess_ip() -> String {
     UdpSocket::bind("0.0.0.0:0")
@@ -175,6 +166,7 @@ pub struct Config {
 
 fn write_atomic(home: &Path, data: &ConfigData) -> io::Result<()> {
     fs::create_dir_all(home)?;
+    #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(home, fs::Permissions::from_mode(0o700))?;
@@ -182,6 +174,7 @@ fn write_atomic(home: &Path, data: &ConfigData) -> io::Result<()> {
     let tmp = home.join("config.tmp");
     let mut opts = fs::OpenOptions::new();
     opts.write(true).create(true).truncate(true);
+    #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
         opts.mode(0o600);

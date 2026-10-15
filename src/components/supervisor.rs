@@ -11,7 +11,6 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 use std::{
     collections::{BTreeMap, VecDeque},
-    os::unix::process::ExitStatusExt,
     process::Stdio,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
@@ -21,6 +20,9 @@ use tokio::{
     process::{Child, Command},
     sync::watch,
 };
+
+#[cfg(unix)]
+use std::os::unix::process::ExitStatusExt;
 
 type Logs = Arc<Mutex<VecDeque<String>>>;
 type Items = Arc<Mutex<BTreeMap<String, Managed>>>;
@@ -111,6 +113,7 @@ fn spawn_process(m: &mut Managed, kernel: &Arc<Kernel>, config: &Arc<Config>) {
 
     let data_dir = config.home.join("data").join(&id);
     let _ = std::fs::create_dir_all(&data_dir);
+    #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         let _ = std::fs::set_permissions(&data_dir, std::fs::Permissions::from_mode(0o700));
@@ -131,6 +134,7 @@ fn spawn_process(m: &mut Managed, kernel: &Arc<Kernel>, config: &Arc<Config>) {
         .stderr(Stdio::piped());
     // new session, like Python's start_new_session=True
     // SAFETY: setsid is async-signal-safe and only touches the child between fork and exec
+    #[cfg(unix)]
     unsafe {
         cmd.pre_exec(|| {
             libc::setsid();
@@ -165,7 +169,10 @@ fn tick(m: &mut Managed, kernel: &Arc<Kernel>, config: &Arc<Config>) {
     let running = m.child.is_some() && exited.is_none();
     if let Some(st) = exited {
         if m.last_exit.is_none() {
-            let code = st.code().or_else(|| st.signal().map(|s| -s)).unwrap_or(-1);
+            let code = st.code().unwrap_or_else(|| {
+                #[cfg(unix)] { st.signal().map(|s| -s).unwrap_or(-1) }
+                #[cfg(not(unix))] { -1 }
+            });
             m.last_exit = Some(json!(code));
         }
     }
@@ -244,8 +251,12 @@ impl Supervisor {
         };
         if let Some(pid) = pid {
             // SAFETY: plain signal delivery to a child we spawned
+            #[cfg(unix)]
             unsafe {
                 libc::kill(pid as i32, libc::SIGTERM);
+            }
+            #[cfg(windows)] {
+                if let Some(child) = self.items.lock().unwrap().get_mut(id).and_then(|m| m.child.as_mut()) { let _ = child.start_kill(); }
             }
             let deadline = Instant::now() + Duration::from_secs(5);
             loop {
