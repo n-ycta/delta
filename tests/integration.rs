@@ -244,3 +244,15 @@ async fn late_supervisor_starts_real_process_after_node_is_ready() {
     assert!(outcome.is_ok(), "late supervisor never started its child process");
     assert!(logs.as_array().unwrap().iter().any(|l| l.as_str().unwrap_or("").contains("health_open_and_anonymous_rejected")), "real child must produce test-list output");
 }
+
+#[tokio::test]
+async fn adding_disabled_component_does_not_start_it() {
+    let n = TestNode::new("disabled-install").await;
+    n.admin.call("supervisor.add",json!({"id":"disabled_probe","command":["nonexistent-delta-test-program"],"enabled":false}),None,None).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(700)).await;
+    let list=n.admin.call("supervisor.list",json!({}),None,None).await.unwrap();
+    let item=list.as_array().unwrap().iter().find(|m|m["id"]=="disabled_probe").unwrap();
+    assert_eq!(item["enabled"],false);assert_eq!(item["running"],false);
+    assert_eq!(n.node.config.read(|c|c.components.iter().find(|m|m.id=="disabled_probe").unwrap().enabled),false);
+    n.close().await;
+}
