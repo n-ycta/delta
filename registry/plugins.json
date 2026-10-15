@@ -1,0 +1,666 @@
+{
+  "format": "delta-plugin-index-v1",
+  "plugins": [
+    {
+      "id": "dev.delta.db",
+      "component": "storage",
+      "repository": "https://github.com/n-ycta/delta_db",
+      "version": "0.2.0",
+      "asset": "https://github.com/n-ycta/delta_db/releases/download/v0.2.0/delta_db.tar.gz",
+      "sha256": "40448175a98a4aa808146f514ab8f77bc579fea1440677c08047d13225ed6b4b",
+      "scopes": [
+        "register:storage",
+        "call:storage.*"
+      ],
+      "manifest": {
+        "id": "dev.delta.db",
+        "name": "Delta Storage",
+        "version": "0.2.0",
+        "contract": "^1.4.0",
+        "publisher": "Delta",
+        "description": "Unified storage with local files or PostgreSQL + TimescaleDB.",
+        "icon": "database",
+        "category": "system",
+        "runtime": {
+          "targets": [
+            "vps",
+            "desktop",
+            "container"
+          ]
+        },
+        "metrics": [],
+        "capabilities": [
+          "storage.local"
+        ],
+        "repository": "https://github.com/n-ycta/delta_db",
+        "defaultLocale": "en",
+        "screenshots": [
+          {
+            "url": "https://raw.githubusercontent.com/n-ycta/delta/main/docs/images/storage-settings.png",
+            "alt": "Storage backend settings"
+          }
+        ],
+        "localizations": {
+          "en": {
+            "name": "Delta Storage",
+            "publisher": "Delta",
+            "description": "Unified storage with local files or PostgreSQL + TimescaleDB.",
+            "icon": "database",
+            "category": "system",
+            "metrics": [],
+            "permissions": [
+              {
+                "scope": "register:storage",
+                "reason": "Required runtime authority. This is executable plugin code, not a sandbox.",
+                "optional": false
+              },
+              {
+                "scope": "call:storage.*",
+                "reason": "Required runtime authority. This is executable plugin code, not a sandbox.",
+                "optional": false
+              }
+            ],
+            "settings": [
+              {
+                "key": "engine",
+                "type": "select",
+                "label": "Storage engine",
+                "default": "file",
+                "options": [
+                  {
+                    "value": "file",
+                    "label": "Local files (quick start)"
+                  },
+                  {
+                    "value": "postgres",
+                    "label": "PostgreSQL + TimescaleDB"
+                  }
+                ]
+              },
+              {
+                "key": "databaseUrl",
+                "type": "secret",
+                "label": "PostgreSQL connection URL",
+                "help": "Stored privately on this node. Leave blank to retain the current connection."
+              },
+              {
+                "key": "confirmBackendChange",
+                "type": "boolean",
+                "label": "I understand that switching engines does not migrate existing data",
+                "default": false
+              }
+            ]
+          },
+          "ru": {
+            "name": "Delta Storage",
+            "publisher": "Delta",
+            "description": "Единое хранилище: локальные файлы или PostgreSQL + TimescaleDB.",
+            "icon": "database",
+            "category": "system",
+            "metrics": [],
+            "permissions": [
+              {
+                "scope": "register:storage",
+                "reason": "Необходимые права процесса. Плагин исполняет код на узле без песочницы.",
+                "optional": false
+              },
+              {
+                "scope": "call:storage.*",
+                "reason": "Необходимые права процесса. Плагин исполняет код на узле без песочницы.",
+                "optional": false
+              }
+            ],
+            "settings": [
+              {
+                "key": "engine",
+                "label": "Движок хранения",
+                "options": [
+                  {
+                    "value": "file",
+                    "label": "Локальные файлы"
+                  },
+                  {
+                    "value": "postgres",
+                    "label": "PostgreSQL + TimescaleDB"
+                  }
+                ]
+              },
+              {
+                "key": "databaseUrl",
+                "label": "Строка подключения PostgreSQL",
+                "help": "Хранится приватно на узле. Оставьте пустым, чтобы сохранить текущее подключение."
+              },
+              {
+                "key": "confirmBackendChange",
+                "label": "Я понимаю, что смена движка не переносит существующие данные"
+              }
+            ]
+          }
+        },
+        "permissions": [
+          {
+            "scope": "register:storage",
+            "reason": "Required runtime authority. This is executable plugin code, not a sandbox.",
+            "optional": false
+          },
+          {
+            "scope": "call:storage.*",
+            "reason": "Required runtime authority. This is executable plugin code, not a sandbox.",
+            "optional": false
+          }
+        ],
+        "settings": [
+          {
+            "key": "engine",
+            "type": "select",
+            "label": "Storage engine",
+            "default": "file",
+            "options": [
+              {
+                "value": "file",
+                "label": "Local files (quick start)"
+              },
+              {
+                "value": "postgres",
+                "label": "PostgreSQL + TimescaleDB"
+              }
+            ]
+          },
+          {
+            "key": "databaseUrl",
+            "type": "secret",
+            "label": "PostgreSQL connection URL",
+            "help": "Stored privately on this node. Leave blank to retain the current connection."
+          },
+          {
+            "key": "confirmBackendChange",
+            "type": "boolean",
+            "label": "I understand that switching engines does not migrate existing data",
+            "default": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "dev.delta.web",
+      "component": "web",
+      "repository": "https://github.com/n-ycta/delta-web",
+      "version": "0.2.0",
+      "asset": "https://github.com/n-ycta/delta-web/releases/download/v0.2.0/delta-web.tar.gz",
+      "sha256": "458d9c8bc909d8adc1498bb6b960332ab9a20c9c1c7e9d1bd383945c39787dec",
+      "scopes": [
+        "admin"
+      ],
+      "manifest": {
+        "id": "dev.delta.web",
+        "name": "Delta Web",
+        "version": "0.2.0",
+        "contract": "^1.4.0",
+        "description": "A modular control panel for your nodes, data and automation.",
+        "publisher": "Delta",
+        "icon": "layout-dashboard",
+        "category": "system",
+        "runtime": {
+          "targets": [
+            "vps",
+            "desktop",
+            "container"
+          ]
+        },
+        "capabilities": [
+          "actions"
+        ],
+        "metrics": [],
+        "repository": "https://github.com/n-ycta/delta-web",
+        "defaultLocale": "en",
+        "screenshots": [
+          {
+            "url": "https://raw.githubusercontent.com/n-ycta/delta/main/docs/images/overview.png",
+            "alt": "Delta console overview"
+          },
+          {
+            "url": "https://raw.githubusercontent.com/n-ycta/delta/main/docs/images/metrics.png",
+            "alt": "Typing metric dashboard"
+          },
+          {
+            "url": "https://raw.githubusercontent.com/n-ycta/delta/main/docs/images/mcp.png",
+            "alt": "MCP gateway configuration"
+          }
+        ],
+        "localizations": {
+          "en": {
+            "name": "Delta Web",
+            "description": "A modular control panel for your nodes, data and automation.",
+            "publisher": "Delta",
+            "icon": "layout-dashboard",
+            "category": "system",
+            "metrics": [],
+            "permissions": [
+              {
+                "scope": "admin",
+                "reason": "Required runtime authority. This is executable plugin code, not a sandbox.",
+                "optional": false
+              }
+            ]
+          },
+          "ru": {
+            "name": "Delta Web",
+            "description": "Веб-панель управления Delta",
+            "publisher": "Delta",
+            "icon": "layout-dashboard",
+            "category": "system",
+            "metrics": [],
+            "permissions": [
+              {
+                "scope": "admin",
+                "reason": "Необходимые права процесса. Плагин исполняет код на узле без песочницы.",
+                "optional": false
+              }
+            ]
+          }
+        },
+        "permissions": [
+          {
+            "scope": "admin",
+            "reason": "Required runtime authority. This is executable plugin code, not a sandbox.",
+            "optional": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "dev.delta.type",
+      "component": "typing",
+      "repository": "https://github.com/n-ycta/delta_type",
+      "version": "0.2.0",
+      "asset": "https://github.com/n-ycta/delta_type/releases/download/v0.2.0/delta_type.tar.gz",
+      "sha256": "819807fed28175015257e2dc1ccbb3d9e3976a102d0f59859e7e4da6f9327a1c",
+      "scopes": [
+        "register:typing",
+        "call:storage.write"
+      ],
+      "manifest": {
+        "id": "dev.delta.type",
+        "name": "Delta Type",
+        "description": "Opt-in RU/EN typing aggregates without recording text. Browser trainer or trusted aggregate clients.",
+        "publisher": "Delta",
+        "version": "0.2.0",
+        "contract": "^1.4.0",
+        "icon": "keyboard",
+        "category": "input",
+        "runtime": {
+          "targets": [
+            "desktop",
+            "vps",
+            "container"
+          ]
+        },
+        "capabilities": [
+          "metrics.timeseries",
+          "actions",
+          "settings.live"
+        ],
+        "settings": [
+          {
+            "key": "enabled",
+            "label": "Collect aggregate sessions",
+            "type": "boolean",
+            "default": true
+          }
+        ],
+        "actions": [
+          {
+            "id": "flush",
+            "label": "Send accumulated aggregates"
+          }
+        ],
+        "metrics": [
+          {
+            "id": "wpm",
+            "label": "Typing speed",
+            "description": "Standard WPM: five characters per word.",
+            "kind": "gauge",
+            "unit": "wpm",
+            "precision": 1,
+            "better": "higher",
+            "dimensions": [
+              {
+                "id": "language",
+                "label": "Language",
+                "values": [
+                  {
+                    "id": "ru",
+                    "label": "Russian"
+                  },
+                  {
+                    "id": "en",
+                    "label": "English"
+                  }
+                ]
+              }
+            ],
+            "aggregations": [
+              "avg",
+              "max",
+              "min",
+              "p95"
+            ],
+            "visualizations": [
+              "timeseries",
+              "comparison",
+              "stat"
+            ]
+          },
+          {
+            "id": "accuracy",
+            "label": "Without corrections",
+            "description": "1 − corrections / entered characters. Not a spelling or text accuracy test.",
+            "kind": "ratio",
+            "unit": "ratio",
+            "precision": 1,
+            "better": "higher",
+            "dimensions": [
+              {
+                "id": "language",
+                "label": "Language",
+                "values": [
+                  {
+                    "id": "ru",
+                    "label": "Russian"
+                  },
+                  {
+                    "id": "en",
+                    "label": "English"
+                  }
+                ]
+              }
+            ],
+            "aggregations": [
+              "avg",
+              "min"
+            ],
+            "visualizations": [
+              "gauge",
+              "timeseries"
+            ]
+          },
+          {
+            "id": "keystrokes",
+            "label": "Characters entered",
+            "kind": "counter",
+            "unit": "",
+            "precision": 0,
+            "aggregations": [
+              "sum"
+            ],
+            "visualizations": [
+              "bar",
+              "heatmap",
+              "stat"
+            ]
+          }
+        ],
+        "repository": "https://github.com/n-ycta/delta_type",
+        "defaultLocale": "en",
+        "screenshots": [
+          {
+            "url": "https://raw.githubusercontent.com/n-ycta/delta/main/docs/images/metrics.png",
+            "alt": "Russian and English typing metrics"
+          }
+        ],
+        "localizations": {
+          "en": {
+            "name": "Delta Type",
+            "description": "Opt-in RU/EN typing aggregates without recording text. Browser trainer or trusted aggregate clients.",
+            "publisher": "Delta",
+            "icon": "keyboard",
+            "category": "input",
+            "settings": [
+              {
+                "key": "enabled",
+                "label": "Collect aggregate sessions",
+                "type": "boolean",
+                "default": true
+              }
+            ],
+            "actions": [
+              {
+                "id": "flush",
+                "label": "Send accumulated aggregates"
+              }
+            ],
+            "metrics": [
+              {
+                "id": "wpm",
+                "label": "Typing speed",
+                "description": "Standard WPM: five characters per word.",
+                "kind": "gauge",
+                "unit": "wpm",
+                "precision": 1,
+                "better": "higher",
+                "dimensions": [
+                  {
+                    "id": "language",
+                    "label": "Language",
+                    "values": [
+                      {
+                        "id": "ru",
+                        "label": "Russian"
+                      },
+                      {
+                        "id": "en",
+                        "label": "English"
+                      }
+                    ]
+                  }
+                ],
+                "aggregations": [
+                  "avg",
+                  "max",
+                  "min",
+                  "p95"
+                ],
+                "visualizations": [
+                  "timeseries",
+                  "comparison",
+                  "stat"
+                ]
+              },
+              {
+                "id": "accuracy",
+                "label": "Without corrections",
+                "description": "1 − corrections / entered characters. Not a spelling or text accuracy test.",
+                "kind": "ratio",
+                "unit": "ratio",
+                "precision": 1,
+                "better": "higher",
+                "dimensions": [
+                  {
+                    "id": "language",
+                    "label": "Language",
+                    "values": [
+                      {
+                        "id": "ru",
+                        "label": "Russian"
+                      },
+                      {
+                        "id": "en",
+                        "label": "English"
+                      }
+                    ]
+                  }
+                ],
+                "aggregations": [
+                  "avg",
+                  "min"
+                ],
+                "visualizations": [
+                  "gauge",
+                  "timeseries"
+                ]
+              },
+              {
+                "id": "keystrokes",
+                "label": "Characters entered",
+                "kind": "counter",
+                "unit": "",
+                "precision": 0,
+                "aggregations": [
+                  "sum"
+                ],
+                "visualizations": [
+                  "bar",
+                  "heatmap",
+                  "stat"
+                ]
+              }
+            ],
+            "permissions": [
+              {
+                "scope": "register:typing",
+                "reason": "Required runtime authority. This is executable plugin code, not a sandbox.",
+                "optional": false
+              },
+              {
+                "scope": "call:storage.write",
+                "reason": "Required runtime authority. This is executable plugin code, not a sandbox.",
+                "optional": false
+              }
+            ]
+          },
+          "ru": {
+            "name": "Delta Type",
+            "description": "Скорость RU/EN и доля исправлений без записи текста. Тренажёр с явным согласием или интеграция агрегатов из доверенного клиента.",
+            "publisher": "Delta",
+            "icon": "keyboard",
+            "category": "input",
+            "settings": [
+              {
+                "key": "enabled",
+                "label": "Сбор агрегатов",
+                "type": "boolean",
+                "default": true
+              }
+            ],
+            "actions": [
+              {
+                "id": "flush",
+                "label": "Отправить накопленные агрегаты"
+              }
+            ],
+            "metrics": [
+              {
+                "id": "wpm",
+                "label": "Скорость печати",
+                "description": "Стандарт: пять введённых символов на слово",
+                "kind": "gauge",
+                "unit": "wpm",
+                "precision": 1,
+                "better": "higher",
+                "dimensions": [
+                  {
+                    "id": "language",
+                    "label": "Язык",
+                    "values": [
+                      {
+                        "id": "ru",
+                        "label": "Русский"
+                      },
+                      {
+                        "id": "en",
+                        "label": "English"
+                      }
+                    ]
+                  }
+                ],
+                "aggregations": [
+                  "avg",
+                  "max",
+                  "min",
+                  "p95"
+                ],
+                "visualizations": [
+                  "timeseries",
+                  "comparison",
+                  "stat"
+                ]
+              },
+              {
+                "id": "accuracy",
+                "label": "Без исправлений",
+                "description": "1 − число Backspace / число вводов. Это не проверка орфографии или правильности текста.",
+                "kind": "ratio",
+                "unit": "ratio",
+                "precision": 1,
+                "better": "higher",
+                "dimensions": [
+                  {
+                    "id": "language",
+                    "label": "Язык",
+                    "values": [
+                      {
+                        "id": "ru",
+                        "label": "Русский"
+                      },
+                      {
+                        "id": "en",
+                        "label": "English"
+                      }
+                    ]
+                  }
+                ],
+                "aggregations": [
+                  "avg",
+                  "min"
+                ],
+                "visualizations": [
+                  "gauge",
+                  "timeseries"
+                ]
+              },
+              {
+                "id": "keystrokes",
+                "label": "Введённые символы",
+                "kind": "counter",
+                "unit": "",
+                "precision": 0,
+                "aggregations": [
+                  "sum"
+                ],
+                "visualizations": [
+                  "bar",
+                  "heatmap",
+                  "stat"
+                ]
+              }
+            ],
+            "permissions": [
+              {
+                "scope": "register:typing",
+                "reason": "Необходимые права процесса. Плагин исполняет код на узле без песочницы.",
+                "optional": false
+              },
+              {
+                "scope": "call:storage.write",
+                "reason": "Необходимые права процесса. Плагин исполняет код на узле без песочницы.",
+                "optional": false
+              }
+            ]
+          }
+        },
+        "permissions": [
+          {
+            "scope": "register:typing",
+            "reason": "Required runtime authority. This is executable plugin code, not a sandbox.",
+            "optional": false
+          },
+          {
+            "scope": "call:storage.write",
+            "reason": "Required runtime authority. This is executable plugin code, not a sandbox.",
+            "optional": false
+          }
+        ]
+      }
+    }
+  ]
+}
