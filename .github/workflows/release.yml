@@ -7,7 +7,7 @@ on:
       tag:
         description: Release tag
         required: true
-        default: v0.3.1
+        default: v0.3.2
 permissions:
   contents: write
 jobs:
@@ -34,7 +34,7 @@ jobs:
           mkdir -p bundle
           cp target/${{ matrix.target }}/release/delta* bundle/
           rm -f bundle/*.d bundle/*.pdb
-          cp LICENSE NOTICE scripts/bootstrap.mjs bundle/
+          cp LICENSE NOTICE scripts/bootstrap.mjs scripts/upgrade.mjs bundle/
           tar -czf delta-${{ matrix.platform }}.tar.gz -C bundle .
       - uses: actions/upload-artifact@v4
         with:

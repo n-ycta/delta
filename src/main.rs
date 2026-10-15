@@ -309,19 +309,21 @@ async fn dispatch(cmd: Cmd) -> Result<(), DeltaError> {
     Ok(())
 }
 
-const SYSTEMD_UNIT: &str = "[Unit]
+const SYSTEMD_UNIT: &str = r#"[Unit]
 Description=Delta node
 After=network-online.target
 
 [Service]
-ExecStart={exe} run
-Environment=DELTA_HOME={home}
+ExecStart="{exe}" run
+Environment="DELTA_HOME={home}"
+Environment="DELTA_NODE_BINARY={home}/runtime/bin/node"
+Environment="PATH={home}/runtime/bin:/usr/local/bin:/usr/bin:/bin"
 Restart=on-failure
 RestartSec=2
 
 [Install]
 WantedBy=default.target
-";
+"#;
 
 const LAUNCHD_PLIST: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

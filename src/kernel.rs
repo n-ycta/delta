@@ -36,6 +36,8 @@ pub struct CapSpec {
     pub name: String,
     #[serde(default)]
     pub description: String,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub localizations: Value,
     #[serde(default = "empty_obj")]
     pub params: Value,
     #[serde(default)]
@@ -46,7 +48,9 @@ pub struct CapSpec {
 
 /// Convenience constructor used by built-in components (`name` is the full `<component>.<action>`).
 pub fn cap(name: &str, description: &str, params: Value, admin: bool, public: bool) -> CapSpec {
-    CapSpec { name: name.into(), description: description.into(), params, admin, public }
+    let catalog: Value = serde_json::from_str(include_str!("locales/ru.json")).expect("bundled locales");
+    let localizations = catalog.get(name).map(|s| json!({"ru":{"description":s}})).unwrap_or(Value::Null);
+    CapSpec { name: name.into(), description: description.into(), localizations, params, admin, public }
 }
 
 pub struct CallContext {
@@ -158,6 +162,7 @@ impl ExternalComponent {
             caps.push(CapSpec {
                 name: full,
                 description: c.get("description").map(value_to_string).unwrap_or_default(),
+                localizations: c.get("localizations").cloned().unwrap_or(Value::Null),
                 params: c.get("params").filter(|p| p.is_object()).cloned().unwrap_or_else(empty_obj),
                 admin: c.get("admin").and_then(Value::as_bool).unwrap_or(false),
                 public: false,
@@ -439,7 +444,7 @@ impl Kernel {
                 out.push((
                     c.name.clone(),
                     json!({
-                        "name": c.name, "description": c.description, "params": c.params,
+                        "name": c.name, "description": c.description, "localizations": c.localizations, "params": c.params,
                         "admin": c.admin, "public": c.public, "component": e.comp.id(),
                         "node": self.node_id, "node_name": self.name,
                     }),

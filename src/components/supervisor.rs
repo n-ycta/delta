@@ -403,6 +403,7 @@ impl Component for Supervisor {
             "supervisor.restart" => {
                 self.with_item(&id, |m| m.wanted = true)?;
                 self.terminate(&id).await;
+                self.kernel()?.remove(&id).await;
                 Ok(json!({"restarting": id}))
             }
             "supervisor.logs" => {
