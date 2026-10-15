@@ -11,6 +11,15 @@ async fn download(url:&str,limit:usize)->Result<Vec<u8>>{
  let mut r=client.get(url).send().await.map_err(|e|DeltaError::unavailable(e.to_string()))?.error_for_status().map_err(|e|DeltaError::unavailable(e.to_string()))?;
  let mut bytes=Vec::new();while let Some(c)=r.chunk().await.map_err(|e|DeltaError::unavailable(e.to_string()))?{if bytes.len()+c.len()>limit{return Err(DeltaError::bad_request("Release exceeds download limit"))}bytes.extend_from_slice(&c)}Ok(bytes)
 }
+// Diagnostic failure must never prevent rollback. Never put process output in API errors.
+fn save_diagnostic(home:&std::path::Path,id:&str,value:&Value)->Option<std::path::PathBuf>{
+ let dir=home.join("data/package-diagnostics");std::fs::create_dir_all(&dir).ok()?;
+ #[cfg(unix)] {use std::os::unix::fs::PermissionsExt;std::fs::set_permissions(&dir,std::fs::Permissions::from_mode(0o700)).ok()?;}
+ let path=dir.join(format!("{id}-{}.json",random_hex(8)));
+ let mut options=std::fs::OpenOptions::new();options.write(true).create_new(true);
+ #[cfg(unix)] {use std::os::unix::fs::OpenOptionsExt;options.mode(0o600);}
+ use std::io::Write;options.open(&path).ok()?.write_all(&serde_json::to_vec_pretty(value).ok()?).ok()?;Some(path)
+}
 async fn catalog()->Result<Value>{serde_json::from_slice(&download(INDEX,2_000_000).await?).map_err(|_|DeltaError::bad_request("Invalid plugin index"))}
 async fn install(k:Arc<Kernel>,p:Principal,item:Value)->Result<Value>{
  let id=item["component"].as_str().unwrap_or("");if !crate::util::valid_id(id){return Err(DeltaError::bad_request("Invalid package component"))}
@@ -43,9 +52,16 @@ async fn install(k:Arc<Kernel>,p:Principal,item:Value)->Result<Value>{
  let result=k.call("supervisor.add",json!({"id":id,"command":[node,launch],"env":env,"scopes":scopes,"token_name":old.as_ref().and_then(|o|o.token_name.clone()).map(Value::String).unwrap_or_else(||item["id"].clone())}),&p,None).await;
  if let Err(e)=result{if let Some(o)=old{let _=k.call("supervisor.add",serde_json::to_value(o).unwrap(),&p,None).await;}return Err(e)}
  for _ in 0..60{if k.component_list().iter().any(|c|c["id"]==id&&c["version"]==version){return Ok(json!({"installed":item["id"],"version":version}))}tokio::time::sleep(Duration::from_secs(1)).await;}
+ // Capture diagnostics BEFORE removing the managed process (which drops its log).
+ // Keep potentially sensitive process output out of API errors and job responses.
+ let state=k.call("supervisor.list",json!({}),&p,None).await.unwrap_or(json!([]));
+ let state=state.as_array().and_then(|items|items.iter().find(|m|m["id"]==id)).cloned().unwrap_or(json!({}));
+ let logs=k.call("supervisor.logs",json!({"id":id,"lines":80}),&p,None).await.unwrap_or(json!([]));
+ let diagnostic=save_diagnostic(&k.config.home,id,&json!({"process":state,"logs":logs}));
  let _=k.call("supervisor.remove",json!({"id":id}),&p,None).await;
+ let restoring=old.is_some();
  if let Some(o)=old{let _=k.call("supervisor.add",serde_json::to_value(o).unwrap(),&p,None).await;}
- Err(DeltaError::unavailable("Plugin did not become ready; previous configuration restored"))
+ Err(DeltaError::unavailable(format!("Plugin {id} did not register within 60 seconds; {}. {}",if restoring{"previous configuration restored"}else{"failed component removed"},if let Some(path)=diagnostic{format!("Private diagnostic: {}",path.display())}else{"Could not save private diagnostic".into()})))
 }
 #[async_trait]impl Component for Packages{
  fn id(&self)->&str{"packages"}fn version(&self)->String{"0.3.0".into()}
@@ -54,6 +70,18 @@ async fn install(k:Arc<Kernel>,p:Principal,item:Value)->Result<Value>{
  "packages.catalog"=>catalog().await,
  "packages.jobs"=>Ok(json!(self.jobs.lock().unwrap().values().cloned().collect::<Vec<_>>())),
  "packages.install"=>{if !ctx.principal.is_admin(){return Err(DeltaError::forbidden("Installing executable packages requires global admin"))}let index=catalog().await?;let item=index["plugins"].as_array().and_then(|items|items.iter().find(|v|v["id"]==a["id"])).cloned().ok_or_else(||DeltaError::not_found("Package not in official index"))?;
- let id=random_hex(12);{let mut jobs=self.jobs.lock().unwrap();if jobs.values().any(|j|j["status"]=="installing"){return Err(DeltaError::conflict("Another installation is running"))}if jobs.len()>100{jobs.clear()}jobs.insert(id.clone(),json!({"id":id,"pluginId":a["id"],"status":"installing"}));}
+ let id=random_hex(12);{let mut jobs=self.jobs.lock().unwrap();if jobs.values().any(|j|j["status"]=="installing"){return Err(DeltaError::conflict("Another installation is running"))}if jobs.len()>100{jobs.clear()}jobs.insert(id.clone(),json!({"id":id,"pluginId":a["id"],"status":"installing","startedAt":crate::util::now()}));}
  let jobs=self.jobs.clone();let k=ctx.kernel.clone();let p=ctx.principal.clone();let jid=id.clone();tokio::spawn(async move{let r=install(k,p,item).await;let mut jobs=jobs.lock().unwrap();let job=jobs.get_mut(&jid).unwrap();match r{Ok(v)=>{job["status"]=json!("complete");job["result"]=v},Err(e)=>{job["status"]=json!("failed");job["error"]=json!({"code":e.code,"message":e.message})}}});Ok(json!({"jobId":id,"status":"installing"}))},_=>Err(DeltaError::not_found("Unknown package operation"))}}
+}
+
+#[cfg(test)] mod tests {
+ use super::*;
+ #[test] fn diagnostics_are_private_and_best_effort(){
+  let home=std::env::temp_dir().join(format!("delta-diagnostic-{}",random_hex(8)));
+  let path=save_diagnostic(&home,"storage",&json!({"logs":["private test output"]})).unwrap();
+  assert!(std::fs::read_to_string(&path).unwrap().contains("private test output"));
+  #[cfg(unix)] {use std::os::unix::fs::PermissionsExt;assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode()&0o777,0o600);}
+  std::fs::remove_dir_all(&home).unwrap();std::fs::write(&home,"not a directory").unwrap();
+  assert!(save_diagnostic(&home,"storage",&json!({})).is_none());std::fs::remove_file(home).unwrap();
+ }
 }
