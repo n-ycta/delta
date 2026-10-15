@@ -128,3 +128,24 @@ async fn two_nodes_pair_and_route_calls() {
     a.close().await;
     b.close().await;
 }
+
+#[tokio::test]
+async fn external_metadata_and_caller_scopes_are_preserved() {
+    let n = TestNode::new("metadata").await;
+    let manifest = json!({"id":"inspect","version":"1.0.0","metadata":{"ui":{"id":"dev.delta.inspect","contract":"^1.4.0"}},"capabilities":[{"name":"identity"}]});
+    let registration = n.admin.request("POST", "/v1/components", Some(&manifest), None).await.unwrap();
+    let components = n.admin.call("core.components", json!({}), None, None).await.unwrap();
+    assert_eq!(components.as_array().unwrap().iter().find(|v| v["id"] == "inspect").unwrap()["metadata"]["ui"]["id"], "dev.delta.inspect");
+    let t = n.admin.call("tokens.create", json!({"name":"reader","scopes":["call:inspect.identity"],"ttl_seconds":60}), None, None).await.unwrap();
+    assert!(t["expires_at"].as_f64().unwrap() > delta::util::now());
+    let reader = n.client(t["token"].as_str());
+    let pending = tokio::spawn(async move { reader.call("inspect.identity", json!({}), None, None).await });
+    let ext = n.node.kernel.get_external("inspect", registration["session"].as_str().unwrap()).unwrap();
+    let inv = ext.next(Duration::from_secs(2)).await.unwrap();
+    assert_eq!(inv["caller"]["scopes"][0], "call:inspect.identity");
+    ext.resolve(inv["id"].as_str().unwrap(), json!({"ok":true,"result":true}));
+    assert_eq!(pending.await.unwrap().unwrap(), true);
+    n.node.kernel.tokens.set_expiry(t["id"].as_str().unwrap(), Some(delta::util::now() - 1.0));
+    assert_eq!(code_of(n.client(t["token"].as_str()).call("inspect.identity", json!({}), None, None).await).await, "unauthorized");
+    n.close().await;
+}
