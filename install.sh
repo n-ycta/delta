@@ -11,7 +11,9 @@ if [ "${1:-}" = "--choose" ]; then
  read -r CHOICE </dev/tty
  case "$CHOICE" in 2) set -- --plugins storage,web,typing "$@";; 3) set -- --plugins '' "$@";; *) set -- --plugins storage,web "$@";; esac
 fi
-if [ "${DELTA_FORCE_DOWNLOAD:-0}" != 1 ] && [ -x "$HOME_DIR/bin/delta" ] && [ -x "$HOME_DIR/runtime/bin/node" ] && [ -f "$HOME_DIR/bin/bootstrap.mjs" ]; then
+# Reuse a verified release only at the requested version; an old bootstrap must
+# never silently bypass an installer upgrade. DELTA_FORCE_DOWNLOAD repairs it.
+if [ "$(cat "$HOME_DIR/bin/release-version" 2>/dev/null || true)" = "$DELTA_VERSION" ] && [ "${DELTA_FORCE_DOWNLOAD:-0}" != 1 ] && [ -x "$HOME_DIR/bin/delta" ] && [ -x "$HOME_DIR/runtime/bin/node" ] && [ -f "$HOME_DIR/bin/bootstrap.mjs" ]; then
  exec "$HOME_DIR/runtime/bin/node" "$HOME_DIR/bin/bootstrap.mjs" "$@"
 fi
 case "$(uname -s)" in Linux) ;; *) echo 'This installer supports Linux. Use install.ps1 on Windows.' >&2; exit 1;; esac
@@ -34,6 +36,7 @@ curl -fLsS "https://nodejs.org/dist/$NODE_VERSION/$NODE_ASSET" -o "$TMP/$NODE_AS
 curl -fLsS "https://nodejs.org/dist/$NODE_VERSION/SHASUMS256.txt" -o "$TMP/node-sums"
 (cd "$TMP"; grep "  $NODE_ASSET\$" node-sums | sha256sum -c -)
 tar -xJf "$TMP/$NODE_ASSET" --strip-components=1 -C "$HOME_DIR/runtime"
+printf '%s\n' "$DELTA_VERSION" > "$HOME_DIR/bin/release-version"
 export PATH="$HOME_DIR/runtime/bin:$HOME_DIR/bin:$PATH"
 export DELTA_NODE_BINARY="$HOME_DIR/runtime/bin/node" DELTA_NPM_BINARY="$HOME_DIR/runtime/bin/npm"
 

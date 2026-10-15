@@ -184,3 +184,24 @@ async fn signed_login_replay_revocation_and_scoped_admin() {
     assert_eq!(code_of(n.client(limited["token"].as_str()).call("tokens.create",json!({"name":"escalate","scopes":["admin"]}),None,None).await).await,"forbidden");
     n.close().await;
 }
+
+#[tokio::test]
+async fn capabilities_publish_source_owned_localizations() {
+    let n = TestNode::new("localizations").await;
+    let catalog = n.node.kernel.catalog();
+    let ping = catalog.iter().find(|c| c["name"] == "system.ping").unwrap();
+    assert_eq!(ping["localizations"]["ru"]["description"], "Проверка связи с узлом");
+    n.close().await;
+}
+
+#[tokio::test]
+async fn supervisor_restart_removes_stale_registration() {
+    let n = TestNode::new("restart").await;
+    n.admin.call("supervisor.add",json!({"id":"restart_test","command":["nonexistent-delta-test-program"]}),None,None).await.unwrap();
+    let manifest = json!({"id":"restart_test","version":"1.0.0","capabilities":[{"name":"status"}]});
+    n.admin.request("POST", "/v1/components", Some(&manifest), None).await.unwrap();
+    n.admin.call("supervisor.restart",json!({"id":"restart_test"}),None,None).await.unwrap();
+    // A replacement must not wait for the old component's 30-second heartbeat timeout.
+    n.admin.request("POST", "/v1/components", Some(&manifest), None).await.unwrap();
+    n.close().await;
+}
