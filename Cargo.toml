@@ -3,7 +3,7 @@ name = "delta-node"
 version = "0.2.0"
 edition = "2021"
 description = "Delta: one API for nodes, components and capabilities"
-license = "MIT"
+license = "Apache-2.0"
 
 [lib]
 name = "delta"
