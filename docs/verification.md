@@ -25,6 +25,10 @@ Historical checks also exercised two local paired nodes, file storage and native
 
 The prebuilt installation workflow installs published Core and plugin packages on Linux/Windows without Rust compilation. Release-specific status is authoritative; an older successful workflow is not proof of the current release. Catalog entries must be populated from downloaded release assets after verifying SHA256SUMS and manifest/package versions.
 
+The final [prebuilt installation run 38884994786](https://github.com/n-ycta/delta/actions/runs/38884994786) passed on both Linux and Windows using Core 0.4.4, Web 0.6.7 (shared UI 0.1.2), Storage 0.4.0, Type 0.4.4, MCP 0.1.2, Updater 0.1.0, Provision 0.1.0 and Observability 0.1.1. It verifies seven supervised plugin registrations, explicit file storage, generated typing ingestion, dependency readiness and direct/proxied MCP initialization. This is a fresh no-service CI installation, not a physical desktop or Android test.
+
+A sandbox release upgrade from Web 0.6.6 to 0.6.7 preserved the independent services. RU/EN browser checks at 390px and 1440px passed with MCP present and disabled, including minimum readable dependency-name widths and no page overflow.
+
 ## Boundaries and incomplete work
 
 - Native Desktop and Android hosts remain previews with limited screens, not full Web parity. Android physical-device/background lifecycle and credential-vault work remain incomplete. Windows packages are unsigned previews.
