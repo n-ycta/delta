@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.4.5]
+
+- Add platform-owned encrypted profile codecs for native hosts.
+- Add private, bounded native UI document persistence and managed manifest discovery.
+
+
 ## [v0.4.4]
 
 - Resolve compatible installed third-party dependencies without requiring an official catalog entry.

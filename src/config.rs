@@ -172,9 +172,12 @@ pub fn default_config(name: &str, listen: &str, port: u16, url: &str) -> ConfigD
 pub struct Config {
     pub home: PathBuf,
     data: Mutex<ConfigData>,
+    codec:Option<std::sync::Arc<dyn ProfileCodec>>,
 }
 
-fn write_atomic(home: &Path, data: &ConfigData) -> io::Result<()> {
+/// Platform-owned encryption; unavailable keys must fail closed, never fall back to plaintext.
+pub trait ProfileCodec: Send + Sync { fn seal(&self, plain:&[u8])->io::Result<Vec<u8>>; fn open(&self, sealed:&[u8])->io::Result<Vec<u8>>; }
+fn write_atomic(home: &Path, data: &ConfigData, codec:Option<&std::sync::Arc<dyn ProfileCodec>>) -> io::Result<()> {
     fs::create_dir_all(home)?;
     #[cfg(unix)]
     {
@@ -191,16 +194,19 @@ fn write_atomic(home: &Path, data: &ConfigData) -> io::Result<()> {
     }
     let mut f = opts.open(&tmp)?;
     let text = serde_json::to_string_pretty(data).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-    f.write_all(text.as_bytes())?;
+    let bytes=match codec {Some(c)=>c.seal(text.as_bytes())?,None=>text.into_bytes()};
+    f.write_all(&bytes)?;
     f.sync_all()?;
     fs::rename(&tmp, home.join("config.json"))
 }
 
 impl Config {
     pub fn new(home: PathBuf, data: ConfigData) -> Self {
-        Self { home, data: Mutex::new(data) }
+        Self { home, data: Mutex::new(data),codec:None }
     }
 
+    pub fn new_with_codec(home:PathBuf,data:ConfigData,codec:std::sync::Arc<dyn ProfileCodec>)->Self {Self {home,data:Mutex::new(data),codec:Some(codec)}}
+    pub fn load_with_codec(home:PathBuf,codec:std::sync::Arc<dyn ProfileCodec>)->io::Result<Self>{let bytes=codec.open(&fs::read(home.join("config.json"))?)?;let data=serde_json::from_slice(&bytes).map_err(|_|io::Error::new(io::ErrorKind::InvalidData,"Invalid encrypted profile"))?;Ok(Self::new_with_codec(home,data,codec))}
     pub fn path(&self) -> PathBuf {
         self.home.join("config.json")
     }
@@ -217,7 +223,7 @@ impl Config {
     }
 
     pub fn save(&self) -> io::Result<()> {
-        write_atomic(&self.home, &self.data.lock().unwrap())
+        write_atomic(&self.home, &self.data.lock().unwrap(),self.codec.as_ref())
     }
 
     pub fn read<R>(&self, f: impl FnOnce(&ConfigData) -> R) -> R {
@@ -228,7 +234,7 @@ impl Config {
     pub fn update<R>(&self, f: impl FnOnce(&mut ConfigData) -> R) -> R {
         let mut g = self.data.lock().unwrap();
         let r = f(&mut g);
-        if let Err(e) = write_atomic(&self.home, &g) {
+        if let Err(e) = write_atomic(&self.home, &g,self.codec.as_ref()) {
             eprintln!("delta: cannot save config: {e}");
         }
         r
@@ -239,7 +245,7 @@ impl Config {
         let mut g = self.data.lock().unwrap();
         let changed = f(&mut g);
         if changed {
-            if let Err(e) = write_atomic(&self.home, &g) {
+            if let Err(e) = write_atomic(&self.home, &g,self.codec.as_ref()) {
                 eprintln!("delta: cannot save config: {e}");
             }
         }
