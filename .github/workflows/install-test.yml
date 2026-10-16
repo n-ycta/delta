@@ -1,0 +1,33 @@
+name: Prebuilt installation smoke test
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux node and plugins without a Rust build
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          export DELTA_HOME="$RUNNER_TEMP/Delta Test Home"
+          sh install.sh --no-service --plugins storage,web,typing > "$RUNNER_TEMP/delta-setup.log" 2>&1 || { grep -E 'Error|failed|mismatch' "$RUNNER_TEMP/delta-setup.log"; exit 1; }
+          echo "DELTA_HOME=$DELTA_HOME" >> "$GITHUB_ENV"
+          echo "NODE_BIN=$DELTA_HOME/runtime/bin/node" >> "$GITHUB_ENV"
+      - name: Install Windows node and plugins without a Rust build
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:DELTA_HOME=Join-Path $env:RUNNER_TEMP 'Delta Test Home'
+          ./install.ps1 -NoService -Plugins 'storage,web,typing' *> "$env:RUNNER_TEMP/delta-setup.log"
+          "DELTA_HOME=$env:DELTA_HOME" >> $env:GITHUB_ENV
+          "NODE_BIN=$env:DELTA_HOME/runtime/node.exe" >> $env:GITHUB_ENV
+      - name: Verify live installed ecosystem
+        shell: pwsh
+        run: '& $env:NODE_BIN scripts/verify-install.mjs'
