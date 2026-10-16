@@ -1,5 +1,5 @@
 // Local-owner recovery ONLY. No init, install, profile reset or credential disclosure.
-import { readFile, mkdir, open, rename, rm, realpath } from 'node:fs/promises';
+import { readFile, open, rename, rm, realpath } from 'node:fs/promises';
 import { resolve, join, isAbsolute } from 'node:path';
 import { homedir, platform } from 'node:os';
 import { randomBytes, createHash } from 'node:crypto';
@@ -19,6 +19,7 @@ export async function recoverWeb({ home, webData, origin, output = console.log }
     return d.result;
   };
   const info = await call('core.info');
+  if (!info.principal?.scopes?.includes('admin')) throw Error('Local owner access was rejected. Nothing was changed.');
   if (info.node_id !== config.node_id) throw Error('The running node does not match this DELTA_HOME. Nothing was changed.');
   // An explicit admin-only request prevents issuing a link with a scoped or obsolete token.
   const keys = await call('identity.list');
@@ -28,8 +29,7 @@ export async function recoverWeb({ home, webData, origin, output = console.log }
   const env = web?.env || {};
   const configuredData = webData || env.DATA_DIR || env.DELTA_DATA || join(home, 'data', 'web');
   if (!isAbsolute(configuredData)) throw Error('Web data path is relative. Supply the existing absolute --web-data directory.');
-  // The default package location can be created, but explicit/custom paths must already exist.
-  if (!webData && !env.DATA_DIR && !env.DELTA_DATA) await mkdir(configuredData, { recursive: true, mode: 0o700 });
+  // Never invent a new Web data directory when recovering an existing installation.
   const dir = await realpath(configuredData);
   const publicOrigin = new URL(origin || env.PUBLIC_ORIGIN || `http://127.0.0.1:${env.PORT || 7710}`);
   if (publicOrigin.username || publicOrigin.password || publicOrigin.pathname !== '/' || publicOrigin.search || publicOrigin.hash || !['http:', 'https:'].includes(publicOrigin.protocol) || (publicOrigin.protocol !== 'https:' && !['127.0.0.1', 'localhost', '[::1]'].includes(publicOrigin.hostname))) throw Error('Use an HTTPS Console origin, or a localhost SSH tunnel. Nothing was changed.');
