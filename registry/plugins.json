@@ -253,16 +253,16 @@
       "id": "dev.delta.web",
       "component": "web",
       "repository": "https://github.com/n-ycta/delta-web",
-      "version": "0.5.1",
-      "asset": "https://github.com/n-ycta/delta-web/releases/download/v0.5.1/delta-web.tar.gz",
-      "sha256": "5e1587697fe81fd3bb5c168b7e400f4f8712f1659dd4bcba6a32a31708aaf20f",
+      "version": "0.6.0",
+      "asset": "https://github.com/n-ycta/delta-web/releases/download/v0.6.0/delta-web.tar.gz",
+      "sha256": "e0e1ba08677a42e56a04530d67d53082b7f1beb6dce95b9d8d33a143309d5331",
       "scopes": [
         "admin"
       ],
       "manifest": {
         "id": "dev.delta.web",
         "name": "Delta Web",
-        "version": "0.5.1",
+        "version": "0.6.0",
         "contract": "^1.4.0",
         "description": "A modular control panel for your nodes, data and automation.",
         "publisher": "Delta",
@@ -2304,6 +2304,1166 @@
         "endpoints": {
           "status": "typing.status",
           "settings": "typing.settings"
+        }
+      }
+    },
+    {
+      "id": "dev.delta.leads",
+      "component": "leads",
+      "repository": "https://github.com/n-ycta/delta-leads",
+      "version": "0.1.1",
+      "asset": "https://github.com/n-ycta/delta-leads/releases/download/v0.1.1/delta-leads.tar.gz",
+      "sha256": "bbbf95bffd070e9197d84526f06b047ce785a06637d46afc02ba52157dfd7785",
+      "scopes": [
+        "register:leads"
+      ],
+      "manifest": {
+        "id": "dev.delta.leads",
+        "name": "Delta Leads",
+        "version": "0.1.1",
+        "contract": "^1.5.0",
+        "publisher": "n-ycta",
+        "description": "Personal RU/EN lead discovery: Reddit RSS/JSON/OAuth, optional X/Threads APIs, precise buyer rules, AI verdicts and Telegram + web notifications. Generic declarative views require Delta Web 0.6.0+.",
+        "icon": "radar",
+        "category": "productivity",
+        "homepage": "https://github.com/n-ycta/delta-leads",
+        "repository": "https://github.com/n-ycta/delta-leads",
+        "runtime": {
+          "targets": [
+            "desktop",
+            "vps",
+            "container"
+          ]
+        },
+        "endpoints": {
+          "status": "leads.status",
+          "settings": "leads.settings",
+          "notifications": "leads.notifications"
+        },
+        "capabilities": [
+          "metrics.timeseries",
+          "actions",
+          "settings.live",
+          "settings.read",
+          "status.read"
+        ],
+        "permissions": [
+          {
+            "scope": "admin:leads.*",
+            "reason": "Read private lead content, manage source credentials and trigger scans."
+          }
+        ],
+        "settings": [
+          {
+            "group": "Pipeline",
+            "key": "enabled",
+            "type": "boolean",
+            "label": "Enable scheduled lead search",
+            "default": true
+          },
+          {
+            "group": "Pipeline",
+            "key": "intervalSec",
+            "type": "number",
+            "label": "Check interval",
+            "default": 300,
+            "min": 60,
+            "max": 86400,
+            "step": 1,
+            "unit": "s"
+          },
+          {
+            "group": "Pipeline",
+            "key": "freshnessHours",
+            "type": "number",
+            "label": "Maximum post age",
+            "default": 24,
+            "min": 1,
+            "max": 168,
+            "unit": "h"
+          },
+          {
+            "group": "Pipeline",
+            "key": "retentionDays",
+            "type": "number",
+            "label": "Local history retention",
+            "default": 30,
+            "min": 1,
+            "max": 90,
+            "unit": "days"
+          },
+          {
+            "group": "Pipeline",
+            "key": "languages",
+            "type": "multiselect",
+            "label": "Languages",
+            "default": [
+              "ru",
+              "en"
+            ],
+            "options": [
+              {
+                "value": "ru",
+                "label": "Русский"
+              },
+              {
+                "value": "en",
+                "label": "English"
+              }
+            ]
+          },
+          {
+            "group": "Search rules",
+            "key": "queries",
+            "type": "string",
+            "label": "Search queries (one per line, up to 12)",
+            "default": "\"[Hiring]\" (bot OR automation OR website OR script)\n\"looking for\" (developer OR automation OR bot)\n\"need someone\" (website OR script OR automation)\n\"looking to hire\" (developer OR website)\n\"нужен\" (бот OR сайт OR скрипт)\n\"ищу\" (разработчика OR программиста OR автоматизацию)\n\"нужно сделать\" (сайт OR бота OR скрипт)\n\"заказать\" (сайт OR бота OR автоматизацию)",
+            "multiline": true
+          },
+          {
+            "group": "Search rules",
+            "key": "services",
+            "type": "string",
+            "label": "Services / topic keywords (one per line)",
+            "default": "automation\nautomate\nworkflow\nn8n\nzapier\nmake.com\nwebsite\nweb site\nlanding page\nweb app\nwebapp\nscraper\nscraping\nscript\nchatbot\ntelegram bot\ndiscord bot\npython\napi integration\nавтоматизац\nавтоматизиров\nсайт\nлендинг\nвеб-приложен\nскрипт\nпарсер\nпарсинг\nбот\nинтеграц",
+            "multiline": true
+          },
+          {
+            "group": "Search rules",
+            "key": "buyerTerms",
+            "type": "string",
+            "label": "Buyer-intent phrases (one per line)",
+            "default": "looking for a developer\nlooking for developer\nlooking for someone\nlooking for an expert\nlooking for a freelancer\nlooking for a programmer\nlooking to hire\nneed someone\nneed a developer\nneed a programmer\nneed a bot\nneed a website\nneed help building\nneed help with automation\nwant to hire\nseeking a developer\nseeking developer\n[hiring]\n[hire]\nhiring a\npaid task\npaid project\nbudget\nищу разработчика\nищу программиста\nищу исполнителя\nнужен разработчик\nнужен программист\nнужен бот\nнужен сайт\nнужен скрипт\nнужна автоматизация\nнужно сделать\nнужно разработать\nкто может сделать\nзаказать сайт\nзаказать бота\nоплачу\nесть бюджет\nготов заплатить",
+            "multiline": true
+          },
+          {
+            "group": "Search rules",
+            "key": "sellerTerms",
+            "type": "string",
+            "label": "Seller / competitor phrases (one per line)",
+            "default": "looking for work\nlooking for projects\nseeking work\nseeking clients\nlooking for clients\navailable for freelance\nищу работу\nищу подработку\nищу проекты\nищу проект\nпоиск заказов\n[for hire]\n[forhire]\navailable for hire\nopen for work\noffering my services\ni offer\nmy portfolio\nhire me\ni build websites\ni build bots\nwe build websites\nour agency\nнаши услуги\nпредлагаю услуги\nпредлагаю свои услуги\nразрабатываю сайты\nсоздаю сайты\nпишу ботов\nищу заказы\nищу клиентов\nмое портфолио\nмоё портфолио\nвозьму заказ",
+            "multiline": true
+          },
+          {
+            "group": "Search rules",
+            "key": "excludedTerms",
+            "type": "string",
+            "label": "Exclusion phrases (one per line)",
+            "default": "looking for advice\nneed advice\nany advice\nhow do i\nhow can i\nwhat tools\nany recommendations\nпосоветуйте\nкак сделать\nкак создать\nкакой сервис\nнужен совет\nfull-time\nfull time\ntutorial\nstep-by-step guide\nfree course\ni built a\ni made a\nshowcase\nищем в штат\nfull-time position\nfull time position\njob opening\nучебный проект\nобучающий курс\nделюсь своим проектом",
+            "multiline": true
+          },
+          {
+            "group": "Search rules",
+            "key": "minScore",
+            "type": "number",
+            "label": "Minimum rule score",
+            "default": 75,
+            "min": 50,
+            "max": 100,
+            "step": 1
+          },
+          {
+            "group": "Search rules",
+            "key": "blockedAuthors",
+            "type": "string",
+            "label": "Blocked authors (one per line, source:username or username)",
+            "default": "",
+            "multiline": true
+          },
+          {
+            "group": "Reddit",
+            "key": "redditEnabled",
+            "type": "boolean",
+            "label": "Search Reddit",
+            "default": true
+          },
+          {
+            "group": "Reddit",
+            "key": "redditMode",
+            "type": "select",
+            "label": "Reddit access method",
+            "default": "rss",
+            "options": [
+              {
+                "value": "rss",
+                "label": "Public RSS / Atom"
+              },
+              {
+                "value": "json",
+                "label": "Public JSON"
+              },
+              {
+                "value": "oauth",
+                "label": "OAuth API"
+              }
+            ]
+          },
+          {
+            "group": "Reddit",
+            "key": "subreddits",
+            "type": "string",
+            "label": "Subreddits (comma separated; empty = all Reddit)",
+            "default": "forhire,slavelabour,freelance_forhire,Entrepreneur,smallbusiness"
+          },
+          {
+            "group": "Reddit",
+            "key": "redditClientId",
+            "type": "string",
+            "label": "Reddit OAuth client ID",
+            "default": ""
+          },
+          {
+            "group": "Reddit",
+            "key": "redditClientSecret",
+            "type": "secret",
+            "label": "Reddit OAuth client secret"
+          },
+          {
+            "group": "Reddit",
+            "key": "redditRefreshToken",
+            "type": "secret",
+            "label": "Reddit OAuth refresh token (optional)"
+          },
+          {
+            "group": "Reddit",
+            "key": "redditUserAgent",
+            "type": "string",
+            "label": "Reddit descriptive user agent",
+            "default": "delta-leads/0.1.0 (personal lead research; configure contact)",
+            "help": "Set a descriptive user agent identifying your app and contact. Reddit can require approved API access."
+          },
+          {
+            "group": "X",
+            "key": "xQueries",
+            "type": "string",
+            "label": "X search queries (one per line; empty uses shared queries)",
+            "default": "",
+            "multiline": true
+          },
+          {
+            "group": "X",
+            "key": "xEnabled",
+            "type": "boolean",
+            "label": "Search X (requires API access)",
+            "default": false
+          },
+          {
+            "group": "X",
+            "key": "xBearerToken",
+            "type": "secret",
+            "label": "X API bearer token"
+          },
+          {
+            "group": "Threads",
+            "key": "threadsQueries",
+            "type": "string",
+            "label": "Threads keyword queries (one phrase per line)",
+            "default": "need a website\nlooking for developer\nautomation help\ntelegram bot\nнужен сайт\nищу разработчика\nнужен бот\nавтоматизация",
+            "multiline": true
+          },
+          {
+            "group": "Threads",
+            "key": "threadsEnabled",
+            "type": "boolean",
+            "label": "Search Threads (requires approved keyword-search permission)",
+            "default": false
+          },
+          {
+            "group": "Threads",
+            "key": "threadsAccessToken",
+            "type": "secret",
+            "label": "Threads user access token"
+          },
+          {
+            "group": "AI verdict",
+            "key": "aiEnabled",
+            "type": "boolean",
+            "label": "Analyze candidates with an AI model before notifying",
+            "default": false,
+            "help": "Public post text is sent to your configured provider. Errors and uncertain verdicts are held, never sent as leads."
+          },
+          {
+            "group": "AI verdict",
+            "key": "aiBaseUrl",
+            "type": "string",
+            "label": "OpenAI-compatible API base URL",
+            "default": "https://api.openai.com/v1",
+            "help": "HTTPS, or HTTP on localhost for a local model. Example: http://127.0.0.1:11434/v1"
+          },
+          {
+            "group": "AI verdict",
+            "key": "aiApiKey",
+            "type": "secret",
+            "label": "Model API key (optional for local models)"
+          },
+          {
+            "group": "AI verdict",
+            "key": "aiModel",
+            "type": "string",
+            "label": "Model name",
+            "default": "gpt-4.1-mini"
+          },
+          {
+            "group": "AI verdict",
+            "key": "aiMinConfidence",
+            "type": "number",
+            "label": "Minimum AI confidence",
+            "default": 0.85,
+            "min": 0.5,
+            "max": 1,
+            "step": 0.01
+          },
+          {
+            "group": "AI verdict",
+            "key": "profile",
+            "type": "string",
+            "label": "Your services / ideal customer",
+            "default": "I take paid freelance projects: business automation, websites and landing pages, Telegram/Discord bots, scripts, scrapers and API integrations. RU/EN clients. I want posts from buyers requesting a solution, not sellers advertising services, showcases, tutorials or full-time employment.",
+            "multiline": true
+          },
+          {
+            "group": "AI verdict",
+            "key": "maxAiPerScan",
+            "type": "number",
+            "label": "Maximum AI calls per scan",
+            "default": 20,
+            "min": 1,
+            "max": 100,
+            "step": 1
+          },
+          {
+            "group": "Notifications",
+            "key": "notificationLocale",
+            "type": "select",
+            "label": "Telegram message language",
+            "default": "ru",
+            "options": [
+              {
+                "value": "ru",
+                "label": "Русский"
+              },
+              {
+                "value": "en",
+                "label": "English"
+              }
+            ]
+          },
+          {
+            "group": "Notifications",
+            "key": "telegramEnabled",
+            "type": "boolean",
+            "label": "Send leads to Telegram",
+            "default": false
+          },
+          {
+            "group": "Notifications",
+            "key": "telegramBotToken",
+            "type": "secret",
+            "label": "Telegram bot token"
+          },
+          {
+            "group": "Notifications",
+            "key": "telegramChatId",
+            "type": "string",
+            "label": "Telegram recipient chat ID",
+            "default": "",
+            "help": "Your chat or group ID. Open the bot and press Start first. This is the recipient, not the sender ID."
+          },
+          {
+            "group": "Notifications",
+            "key": "maxTelegramPerScan",
+            "type": "number",
+            "label": "Maximum Telegram sends per scan",
+            "default": 10,
+            "min": 1,
+            "max": 50,
+            "step": 1
+          }
+        ],
+        "actions": [
+          {
+            "id": "scan_now",
+            "label": "Check now",
+            "description": "Start one background scan; inspect Sources for progress and errors."
+          },
+          {
+            "id": "test_telegram",
+            "label": "Test Telegram",
+            "description": "Send a single test message to the configured recipient."
+          },
+          {
+            "id": "preview",
+            "label": "Test matching rules",
+            "inputs": [
+              {
+                "key": "title",
+                "label": "Post title",
+                "type": "string",
+                "default": ""
+              },
+              {
+                "key": "text",
+                "label": "Post text",
+                "type": "string",
+                "multiline": true,
+                "default": ""
+              }
+            ]
+          },
+          {
+            "id": "feedback",
+            "label": "Review a lead",
+            "inputs": [
+              {
+                "key": "id",
+                "label": "Post ID (source:id)",
+                "type": "string",
+                "default": ""
+              },
+              {
+                "key": "review",
+                "label": "Your review",
+                "type": "select",
+                "default": "relevant",
+                "options": [
+                  {
+                    "value": "new",
+                    "label": "new"
+                  },
+                  {
+                    "value": "relevant",
+                    "label": "relevant"
+                  },
+                  {
+                    "value": "false_positive",
+                    "label": "false_positive"
+                  },
+                  {
+                    "value": "contacted",
+                    "label": "contacted"
+                  },
+                  {
+                    "value": "won",
+                    "label": "won"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "views": [
+          {
+            "id": "posts",
+            "label": "Posts & verdicts",
+            "capability": "leads.list",
+            "inputs": [
+              {
+                "key": "verdict",
+                "label": "Verdict",
+                "type": "select",
+                "default": "",
+                "options": [
+                  {
+                    "value": "",
+                    "label": "All"
+                  },
+                  {
+                    "value": "lead",
+                    "label": "lead"
+                  },
+                  {
+                    "value": "pending_ai",
+                    "label": "pending_ai"
+                  },
+                  {
+                    "value": "uncertain",
+                    "label": "uncertain"
+                  },
+                  {
+                    "value": "competitor",
+                    "label": "competitor"
+                  },
+                  {
+                    "value": "irrelevant",
+                    "label": "irrelevant"
+                  },
+                  {
+                    "value": "excluded",
+                    "label": "excluded"
+                  }
+                ]
+              },
+              {
+                "key": "search",
+                "label": "Search title / text",
+                "type": "string",
+                "default": ""
+              }
+            ],
+            "refreshSec": 30,
+            "columns": [
+              {
+                "key": "id",
+                "label": "ID",
+                "type": "text"
+              },
+              {
+                "key": "title",
+                "label": "Post",
+                "type": "link",
+                "width": 300,
+                "urlKey": "url"
+              },
+              {
+                "key": "source",
+                "label": "Source",
+                "type": "text"
+              },
+              {
+                "key": "createdAt",
+                "label": "Published",
+                "type": "datetime"
+              },
+              {
+                "key": "verdictLabel",
+                "label": "Verdict",
+                "type": "badge"
+              },
+              {
+                "key": "score",
+                "label": "Rules",
+                "type": "number",
+                "width": 100
+              },
+              {
+                "key": "confidence",
+                "label": "AI confidence",
+                "type": "number",
+                "width": 120
+              },
+              {
+                "key": "reason",
+                "label": "Reason",
+                "type": "text",
+                "width": 320
+              },
+              {
+                "key": "model",
+                "label": "Model",
+                "type": "text"
+              },
+              {
+                "key": "deliveryLabel",
+                "label": "Telegram",
+                "type": "text"
+              },
+              {
+                "key": "reviewLabel",
+                "label": "Review",
+                "type": "text"
+              }
+            ]
+          },
+          {
+            "id": "statistics",
+            "label": "Lifetime counters",
+            "capability": "leads.statistics",
+            "columns": [
+              {
+                "key": "metric",
+                "label": "Metric",
+                "type": "text"
+              },
+              {
+                "key": "value",
+                "label": "Count",
+                "type": "number"
+              }
+            ]
+          },
+          {
+            "id": "sources",
+            "label": "Source health & coverage",
+            "capability": "leads.sources",
+            "refreshSec": 15,
+            "columns": [
+              {
+                "key": "source",
+                "label": "Source",
+                "type": "text"
+              },
+              {
+                "key": "checkedAt",
+                "label": "Last check",
+                "type": "datetime"
+              },
+              {
+                "key": "count",
+                "label": "Fetched",
+                "type": "number"
+              },
+              {
+                "key": "partial",
+                "label": "Partial coverage",
+                "type": "text"
+              },
+              {
+                "key": "error",
+                "label": "Error",
+                "type": "text"
+              },
+              {
+                "key": "retryAt",
+                "label": "Retry at",
+                "type": "datetime"
+              }
+            ]
+          }
+        ],
+        "metrics": [
+          {
+            "id": "scanned",
+            "label": "Unique posts checked",
+            "kind": "counter",
+            "unit": "posts",
+            "precision": 0,
+            "aggregations": [
+              "sum"
+            ],
+            "defaultAggregation": "sum",
+            "dimensions": [],
+            "visualizations": [
+              "stat",
+              "timeseries",
+              "bar"
+            ],
+            "queryCapability": "leads.metrics_query"
+          },
+          {
+            "id": "leads",
+            "label": "Accepted leads",
+            "kind": "counter",
+            "unit": "posts",
+            "precision": 0,
+            "aggregations": [
+              "sum"
+            ],
+            "defaultAggregation": "sum",
+            "dimensions": [],
+            "visualizations": [
+              "stat",
+              "timeseries",
+              "bar"
+            ],
+            "queryCapability": "leads.metrics_query"
+          },
+          {
+            "id": "competitors",
+            "label": "Competitors rejected",
+            "kind": "counter",
+            "unit": "posts",
+            "precision": 0,
+            "aggregations": [
+              "sum"
+            ],
+            "defaultAggregation": "sum",
+            "dimensions": [],
+            "visualizations": [
+              "stat",
+              "timeseries",
+              "bar"
+            ],
+            "queryCapability": "leads.metrics_query"
+          },
+          {
+            "id": "excluded",
+            "label": "Posts excluded",
+            "kind": "counter",
+            "unit": "posts",
+            "precision": 0,
+            "aggregations": [
+              "sum"
+            ],
+            "defaultAggregation": "sum",
+            "dimensions": [],
+            "visualizations": [
+              "stat",
+              "timeseries",
+              "bar"
+            ],
+            "queryCapability": "leads.metrics_query"
+          },
+          {
+            "id": "sent",
+            "label": "Telegram sent",
+            "kind": "counter",
+            "unit": "posts",
+            "precision": 0,
+            "aggregations": [
+              "sum"
+            ],
+            "defaultAggregation": "sum",
+            "dimensions": [],
+            "visualizations": [
+              "stat",
+              "timeseries",
+              "bar"
+            ],
+            "queryCapability": "leads.metrics_query"
+          }
+        ],
+        "localizations": {
+          "ru": {
+            "description": "Личный поиск заказчиков RU/EN: Reddit RSS/JSON/OAuth, X и Threads через API, точные правила, вердикт нейросети и уведомления в Telegram и Web. Общие таблицы требуют Delta Web 0.6.0+.",
+            "settings": [
+              {
+                "key": "enabled",
+                "label": "Фоновый поиск включён",
+                "group": "Конвейер"
+              },
+              {
+                "key": "intervalSec",
+                "label": "Интервал проверки",
+                "group": "Конвейер",
+                "unit": "с"
+              },
+              {
+                "key": "freshnessHours",
+                "label": "Максимальный возраст поста",
+                "group": "Конвейер",
+                "unit": "ч"
+              },
+              {
+                "key": "retentionDays",
+                "label": "Хранение локальной истории",
+                "group": "Конвейер",
+                "unit": "дней"
+              },
+              {
+                "key": "languages",
+                "label": "Языки",
+                "group": "Конвейер",
+                "options": [
+                  {
+                    "value": "ru",
+                    "label": "Русский"
+                  },
+                  {
+                    "value": "en",
+                    "label": "Английский"
+                  }
+                ]
+              },
+              {
+                "key": "queries",
+                "label": "Поисковые запросы — по одному на строку, максимум 12",
+                "group": "Правила поиска"
+              },
+              {
+                "key": "services",
+                "label": "Услуги и ключевые слова",
+                "group": "Правила поиска"
+              },
+              {
+                "key": "buyerTerms",
+                "label": "Фразы намерения заказать",
+                "group": "Правила поиска"
+              },
+              {
+                "key": "sellerTerms",
+                "label": "Фразы исполнителей и конкурентов",
+                "group": "Правила поиска"
+              },
+              {
+                "key": "excludedTerms",
+                "label": "Исключающие фразы",
+                "group": "Правила поиска"
+              },
+              {
+                "key": "minScore",
+                "label": "Минимальная оценка правил",
+                "group": "Правила поиска"
+              },
+              {
+                "key": "blockedAuthors",
+                "label": "Заблокированные авторы",
+                "group": "Правила поиска"
+              },
+              {
+                "key": "redditEnabled",
+                "label": "Искать в Reddit",
+                "group": "Reddit"
+              },
+              {
+                "key": "redditMode",
+                "label": "Способ доступа к Reddit",
+                "group": "Reddit",
+                "options": [
+                  {
+                    "value": "rss",
+                    "label": "Публичный RSS / Atom"
+                  },
+                  {
+                    "value": "json",
+                    "label": "Публичный JSON"
+                  },
+                  {
+                    "value": "oauth",
+                    "label": "OAuth API"
+                  }
+                ]
+              },
+              {
+                "key": "subreddits",
+                "label": "Сабреддиты через запятую; пусто — весь Reddit",
+                "group": "Reddit"
+              },
+              {
+                "key": "redditClientId",
+                "label": "Client ID приложения Reddit",
+                "group": "Reddit"
+              },
+              {
+                "key": "redditClientSecret",
+                "label": "Client secret приложения Reddit",
+                "group": "Reddit"
+              },
+              {
+                "key": "redditRefreshToken",
+                "label": "Refresh token Reddit — необязательно",
+                "group": "Reddit"
+              },
+              {
+                "key": "redditUserAgent",
+                "label": "User-Agent Reddit — укажите приложение и контакт",
+                "group": "Reddit",
+                "help": "Укажите приложение и контакт в User-Agent. Reddit может потребовать одобренный доступ к API."
+              },
+              {
+                "key": "xQueries",
+                "label": "Запросы X; пусто — общие запросы",
+                "group": "X"
+              },
+              {
+                "key": "xEnabled",
+                "label": "Искать в X — нужен доступ к API",
+                "group": "X"
+              },
+              {
+                "key": "xBearerToken",
+                "label": "Bearer token API X",
+                "group": "X"
+              },
+              {
+                "key": "threadsQueries",
+                "label": "Ключевые фразы Threads — по одной на строку",
+                "group": "Threads"
+              },
+              {
+                "key": "threadsEnabled",
+                "label": "Искать в Threads — нужен доступ к поисковому API",
+                "group": "Threads"
+              },
+              {
+                "key": "threadsAccessToken",
+                "label": "Токен пользователя Threads",
+                "group": "Threads"
+              },
+              {
+                "key": "aiEnabled",
+                "label": "Проверять кандидатов нейросетью до уведомления",
+                "group": "Вердикт нейросети",
+                "help": "Текст публичного поста передаётся выбранному провайдеру. При ошибке или неуверенном вердикте лид не отправляется."
+              },
+              {
+                "key": "aiBaseUrl",
+                "label": "Базовый URL OpenAI-совместимого API",
+                "group": "Вердикт нейросети",
+                "help": "HTTPS или HTTP на localhost для локальной модели. Пример: http://127.0.0.1:11434/v1"
+              },
+              {
+                "key": "aiApiKey",
+                "label": "API-ключ нейросети — необязательно для локальной",
+                "group": "Вердикт нейросети"
+              },
+              {
+                "key": "aiModel",
+                "label": "Название модели",
+                "group": "Вердикт нейросети"
+              },
+              {
+                "key": "aiMinConfidence",
+                "label": "Минимальная уверенность нейросети",
+                "group": "Вердикт нейросети"
+              },
+              {
+                "key": "profile",
+                "label": "Ваши услуги и портрет заказчика",
+                "group": "Вердикт нейросети"
+              },
+              {
+                "key": "maxAiPerScan",
+                "label": "Максимум вызовов нейросети за проверку",
+                "group": "Вердикт нейросети"
+              },
+              {
+                "key": "notificationLocale",
+                "label": "Язык сообщений Telegram",
+                "group": "Уведомления",
+                "options": [
+                  {
+                    "value": "ru",
+                    "label": "Русский"
+                  },
+                  {
+                    "value": "en",
+                    "label": "Английский"
+                  }
+                ]
+              },
+              {
+                "key": "telegramEnabled",
+                "label": "Отправлять лиды в Telegram",
+                "group": "Уведомления"
+              },
+              {
+                "key": "telegramBotToken",
+                "label": "Токен Telegram-бота",
+                "group": "Уведомления"
+              },
+              {
+                "key": "telegramChatId",
+                "label": "Chat ID получателя в Telegram",
+                "group": "Уведомления",
+                "help": "ID вашего чата или группы. Сначала нажмите Start у бота. Это получатель, а не отправитель."
+              },
+              {
+                "key": "maxTelegramPerScan",
+                "label": "Максимум отправок Telegram за проверку",
+                "group": "Уведомления"
+              }
+            ],
+            "actions": [
+              {
+                "id": "scan_now",
+                "label": "Проверить сейчас",
+                "description": "Запустить фоновую проверку. Ход работы и ошибки видны в таблице источников."
+              },
+              {
+                "id": "test_telegram",
+                "label": "Тест Telegram",
+                "description": "Отправить одно тестовое сообщение указанному получателю."
+              },
+              {
+                "id": "preview",
+                "label": "Проверить правила на тексте",
+                "inputs": [
+                  {
+                    "key": "title",
+                    "label": "Заголовок поста"
+                  },
+                  {
+                    "key": "text",
+                    "label": "Текст поста"
+                  }
+                ]
+              },
+              {
+                "id": "feedback",
+                "label": "Оценить лид",
+                "inputs": [
+                  {
+                    "key": "id",
+                    "label": "ID поста (источник:id)"
+                  },
+                  {
+                    "key": "review",
+                    "label": "Ваша оценка",
+                    "options": [
+                      {
+                        "value": "new",
+                        "label": "Новый"
+                      },
+                      {
+                        "value": "relevant",
+                        "label": "Подходит"
+                      },
+                      {
+                        "value": "false_positive",
+                        "label": "Ложное срабатывание"
+                      },
+                      {
+                        "value": "contacted",
+                        "label": "Связался"
+                      },
+                      {
+                        "value": "won",
+                        "label": "Заказ получен"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "views": [
+              {
+                "id": "posts",
+                "label": "Посты и вердикты",
+                "inputs": [
+                  {
+                    "key": "verdict",
+                    "label": "Вердикт",
+                    "options": [
+                      {
+                        "value": "",
+                        "label": "Все"
+                      },
+                      {
+                        "value": "lead",
+                        "label": "Лид"
+                      },
+                      {
+                        "value": "pending_ai",
+                        "label": "Ожидает нейросеть"
+                      },
+                      {
+                        "value": "uncertain",
+                        "label": "Неоднозначно"
+                      },
+                      {
+                        "value": "competitor",
+                        "label": "Конкурент"
+                      },
+                      {
+                        "value": "irrelevant",
+                        "label": "Не подходит"
+                      },
+                      {
+                        "value": "excluded",
+                        "label": "Исключён"
+                      }
+                    ]
+                  },
+                  {
+                    "key": "search",
+                    "label": "Поиск по заголовку и тексту"
+                  }
+                ],
+                "columns": [
+                  {
+                    "key": "id",
+                    "label": "ID"
+                  },
+                  {
+                    "key": "title",
+                    "label": "Пост"
+                  },
+                  {
+                    "key": "source",
+                    "label": "Источник"
+                  },
+                  {
+                    "key": "createdAt",
+                    "label": "Опубликован"
+                  },
+                  {
+                    "key": "verdictLabel",
+                    "label": "Вердикт"
+                  },
+                  {
+                    "key": "score",
+                    "label": "Оценка правил"
+                  },
+                  {
+                    "key": "confidence",
+                    "label": "Уверенность ИИ"
+                  },
+                  {
+                    "key": "reason",
+                    "label": "Причина"
+                  },
+                  {
+                    "key": "model",
+                    "label": "Модель"
+                  },
+                  {
+                    "key": "deliveryLabel",
+                    "label": "Telegram"
+                  },
+                  {
+                    "key": "reviewLabel",
+                    "label": "Ваша оценка"
+                  }
+                ]
+              },
+              {
+                "id": "statistics",
+                "label": "Счётчики за всё время",
+                "columns": [
+                  {
+                    "key": "metric",
+                    "label": "Показатель"
+                  },
+                  {
+                    "key": "value",
+                    "label": "Количество"
+                  }
+                ]
+              },
+              {
+                "id": "sources",
+                "label": "Доступность и охват источников",
+                "columns": [
+                  {
+                    "key": "source",
+                    "label": "Источник"
+                  },
+                  {
+                    "key": "checkedAt",
+                    "label": "Проверен"
+                  },
+                  {
+                    "key": "count",
+                    "label": "Получено"
+                  },
+                  {
+                    "key": "partial",
+                    "label": "Неполный охват"
+                  },
+                  {
+                    "key": "error",
+                    "label": "Ошибка"
+                  },
+                  {
+                    "key": "retryAt",
+                    "label": "Повторная попытка"
+                  }
+                ]
+              }
+            ],
+            "metrics": [
+              {
+                "id": "scanned",
+                "label": "Проверено уникальных постов"
+              },
+              {
+                "id": "leads",
+                "label": "Принято лидов"
+              },
+              {
+                "id": "competitors",
+                "label": "Отсеяно конкурентов"
+              },
+              {
+                "id": "excluded",
+                "label": "Исключено постов"
+              },
+              {
+                "id": "sent",
+                "label": "Отправлено в Telegram"
+              }
+            ]
+          }
         }
       }
     }
