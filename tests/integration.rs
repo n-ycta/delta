@@ -279,3 +279,36 @@ async fn explicit_peer_trust_is_directional_revocable_and_single_use() {
     assert_eq!(code_of(restricted.call("peers.trust",json!({"node":"trust-b","admin":true}),None,None).await).await,"forbidden");
     a.close().await;b.close().await;
 }
+
+#[tokio::test]
+async fn remembered_signed_session_survives_disk_reload_and_revocation() {
+    use k256::schnorr::{SigningKey,signature::Signer};
+    let n=TestNode::new("remembered").await;
+    let key=SigningKey::from_bytes(&[9u8;32]).unwrap();
+    let pk=hex::encode(key.verifying_key().to_bytes());
+    let enrolled=n.admin.call("identity.enroll",json!({"public_key":pk,"name":"Remembered laptop","scopes":["call:system.ping"]}),None,None).await.unwrap();
+    let public=n.client(None);
+    for remember in [false,true] {
+        let c=public.call("identity.challenge",json!({"public_key":pk,"audience":"http://localhost:7710","remember":remember}),None,None).await.unwrap();
+        assert_eq!(c["remember"],remember);
+        assert_eq!(c["message"].as_str().unwrap().ends_with("\nremember:2592000"),remember);
+        let sig:k256::schnorr::Signature=key.sign(c["message"].as_str().unwrap().as_bytes());
+        let login=public.call("identity.login",json!({"nonce":c["nonce"],"signature":hex::encode(sig.to_bytes())}),None,None).await.unwrap();
+        let expected=if remember{2592000.0}else{28800.0};
+        assert!((login["expires_at"].as_f64().unwrap()-delta::util::now()-expected).abs()<5.0);
+        let disk=Arc::new(Config::load(n.home.clone()).unwrap());
+        let store=TokenStore::new(disk);
+        let principal=store.authenticate(login["token"].as_str().unwrap()).expect("session survives a fresh token store loaded from disk");
+        assert!(!principal.is_admin());
+        n.admin.call("tokens.revoke",json!({"id":login["id"]}),None,None).await.unwrap();
+        let store=TokenStore::new(Arc::new(Config::load(n.home.clone()).unwrap()));
+        assert!(store.authenticate(login["token"].as_str().unwrap()).is_none());
+    }
+    // Revoking the key must also revoke persistent remembered sessions.
+    let c=public.call("identity.challenge",json!({"public_key":pk,"audience":"http://localhost:7710","remember":true}),None,None).await.unwrap();
+    let sig:k256::schnorr::Signature=key.sign(c["message"].as_str().unwrap().as_bytes());
+    let login=public.call("identity.login",json!({"nonce":c["nonce"],"signature":hex::encode(sig.to_bytes())}),None,None).await.unwrap();
+    n.admin.call("identity.remove",json!({"id":enrolled["id"]}),None,None).await.unwrap();
+    assert!(TokenStore::new(Arc::new(Config::load(n.home.clone()).unwrap())).authenticate(login["token"].as_str().unwrap()).is_none());
+    n.close().await;
+}

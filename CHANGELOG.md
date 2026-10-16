@@ -9,6 +9,8 @@
 
 ## [Unreleased]
 
+- Persist signed-login tokens across core restarts, with a signed optional 30-day remembered-device session; preserve scoped access and key revocation. Enable/repair autostart on installer reruns, and fail explicitly rather than silently falling back to a non-autostart process.
+
 - Improve release documentation and changelog-backed release publishing; no new runtime release is created for this maintenance change.
 
 ## [v0.4.0]

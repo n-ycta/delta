@@ -116,3 +116,9 @@ An existing installation is reused only when its `bin/release-version` matches t
 If a plugin does not register within 60 seconds, package installation saves its process state and recent logs to a random private file under `data/package-diagnostics/` **before** rollback. The API returns the file location, not the logs. Treat diagnostic contents as sensitive; redact before sharing. A diagnostic write failure does not block rollback. Package jobs include `startedAt` so clients can choose the latest attempt, rather than sorting random job IDs.
 
 Run `node --test tests/installer.test.mjs` alongside `cargo test --locked` to check bootstrap port selection and stale installer reuse. Release binaries and the package index must be rebuilt/versioned together; editing source alone does not update the installed prebuilt runtime.
+
+### Autostart repair and browser sessions (pending release)
+
+The default installer now enables or repairs the user service even if a temporary node is already online. On Linux, an owned temporary process is safely stopped before handing control to systemd. Service setup failures are no longer silently presented as a reboot-ready installation; `--no-service` is an explicit temporary/development mode only.
+
+Signed-login token hashes persist across core restarts. The optional remembered-device challenge binds a 30-day lifetime to the signature; ordinary signed sessions remain limited to eight hours. Revoking the key also revokes its persisted sessions. Existing expired or in-memory sessions require one fresh login. Web and core changes must be deployed together for remembered-device login.

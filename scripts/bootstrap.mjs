@@ -17,10 +17,12 @@ async function online(){try{await call('core.info');return true;}catch{return fa
 const versionOutput=spawnSync(binary,['--version'],{encoding:'utf8'});
 const installedVersion=versionOutput.status===0?versionOutput.stdout.trim().split(/\s+/).at(-1):null;
 if(await online()){const running=await call('core.info');if(installedVersion&&running.version&&running.version!==installedVersion){console.log(`Updating running node ${running.version} → ${installedVersion}…`);await stopPreviousNode({home,binary,online});}}
+// Repair/enable autostart even when a previous --no-service node is already online.
+let service=false;
+if(!has('--no-service')){if(platform()==='linux'&&await online()){const active=spawnSync('systemctl',['--user','is-active','--quiet','delta.service']);if(active.status!==0)await stopPreviousNode({home,binary,online});}const r=spawnSync(binary,['service','install'],{stdio:'inherit',env:process.env});if(r.status!==0)throw Error('Could not enable Delta autostart. No reboot-ready installation was completed. Use --no-service only for an intentional temporary run.');service=true;}
 if(!await online()){
- let service=false;
- if(!has('--no-service')){const r=spawnSync(binary,['service','install'],{stdio:'inherit',env:process.env});service=r.status===0;}
  for(let i=0;service&&i<15&&!await online();i++)await new Promise(r=>setTimeout(r,1000));
+ if(!await online()&&service)throw Error('Delta service did not become ready; inspect systemctl --user status delta.service and journalctl --user -u delta.service.');
  if(!await online()){const log=resolve(home,'node.log');const {openSync,closeSync}=await import('node:fs');const out=openSync(log,'a',0o600);const child=spawn(binary,['run'],{detached:true,stdio:['ignore',out,out],env:process.env,windowsHide:true});child.unref();closeSync(out);console.log('Node started in background. Log:',log);}
  for(let i=0;i<30&&!await online();i++)await new Promise(r=>setTimeout(r,500));if(!await online())throw Error('Node did not start; inspect '+resolve(home,'node.log'));
 }
