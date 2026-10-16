@@ -59,3 +59,10 @@ ssh -L 7710:127.0.0.1:7710 USER@HOST
 ## Security boundaries
 
 The tool makes only authenticated `core.info` and `identity.list` calls over loopback and creates a five-minute, hashed, one-use bootstrap file with private permissions. It does not print the existing admin token or modify `config.json`. The link must be exchanged over HTTPS or localhost with an exact matching Origin. Anonymous browsers cannot issue a recovery link or enroll themselves as owner.
+
+
+## Existing installation: update without the Console
+
+`node scripts/update-existing.mjs --recover --open` runs as the original OS user and uses the existing private owner credential. It updates only installed, enabled official plugins, pins the catalog version/checksum, waits for package jobs, preserves the node identity and peers, saves a private configuration backup, then issues a fresh five-minute owner recovery link. Disabled and third-party plugins are not silently enabled or replaced. It does not update the Core executable or native APK/EXE hosts. Core 0.4.4 is the current published stable Core; preview source changes are not installed by this repair command. No database snapshot or multi-package transactional rollback is implied.
+
+Run on the original PC, not as root and not in a new Delta home. Never run `delta init --force`. Save a new recovery key and explicitly register it on the recovered node.
