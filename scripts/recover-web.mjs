@@ -19,7 +19,8 @@ export async function recoverWeb({ home, webData, origin, output = console.log }
     return d.result;
   };
   const info = await call('core.info');
-  if (!info.principal?.scopes?.includes('admin')) throw Error('Local owner access was rejected. Nothing was changed.');
+  const record = config.tokens?.find(t => t.hash === createHash('sha256').update(admin).digest('hex'));
+  if (!record?.scopes?.includes('admin') || (record.expires_at != null && record.expires_at * 1000 <= Date.now())) throw Error('Local owner access was rejected. Nothing was changed.');
   if (info.node_id !== config.node_id) throw Error('The running node does not match this DELTA_HOME. Nothing was changed.');
   // An explicit admin-only request prevents issuing a link with a scoped or obsolete token.
   const keys = await call('identity.list');
