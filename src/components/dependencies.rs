@@ -65,33 +65,35 @@ pub fn removal_blockers(k:&Kernel,id:&str)->Vec<String>{
  rows.iter().filter_map(|r|{if r["id"]==id||r["enabled"]==false{return None}let ui=&r["metadata"]["ui"];let source=ui["id"].as_str()?;let used=parse(ui).ok()?.iter().any(|d|d.required&&(d.id==stable||d.id==id||binds.get(&format!("{source}:{}",d.id)).map(|v|v==id).unwrap_or(false)));used.then(||source.to_string())}).collect()
 }
 /// Topological plan, bounded and cycle-checked. Optional dependencies require explicit selection.
-pub fn plan(index:&Value,id:&str,selected:&[String],rows:&[Value])->Result<Value>{
+pub fn plan(index:&Value,id:&str,selected:&[String],rows:&[Value])->Result<Value>{plan_bound(index,id,selected,rows,&BTreeMap::new())}
+pub fn plan_for_kernel(k:&Kernel,index:&Value,id:&str,selected:&[String])->Result<Value>{plan_bound(index,id,selected,&installed(k),&bindings(k))}
+fn plan_bound(index:&Value,id:&str,selected:&[String],rows:&[Value],bindings:&BTreeMap<String,String>)->Result<Value>{
  let catalog=index["plugins"].as_array().ok_or_else(||DeltaError::bad_request("Invalid package index"))?;
  let root=catalog.iter().find(|r|r["id"]==id).ok_or_else(||DeltaError::not_found("Package not found"))?;
  let allowed=parse(&root["manifest"])?;if selected.len()>32||selected.iter().any(|s|!allowed.iter().any(|d|d.id==*s&&!d.required&&d.kind=="plugin")){return Err(DeltaError::bad_request("Unknown optional dependency selection"))}
- struct Walk<'a>{catalog:&'a Vec<Value>,rows:&'a[Value],selected:&'a[String],visiting:HashSet<String>,done:HashSet<String>,order:Vec<Value>,warnings:Vec<Value>}
+ struct Walk<'a>{catalog:&'a Vec<Value>,rows:&'a[Value],selected:&'a[String],bindings:&'a BTreeMap<String,String>,visiting:HashSet<String>,done:HashSet<String>,order:Vec<Value>,warnings:Vec<Value>}
  impl Walk<'_>{fn visit(&mut self,item:&Value,root:bool)->Result<()>{
   let id=item["id"].as_str().ok_or_else(||DeltaError::bad_request("Invalid package ID"))?;
+  if let Some(platforms)=item["manifest"]["runtime"]["platforms"].as_array(){if !platforms.iter().any(|v|v==std::env::consts::OS){return Err(DeltaError::conflict("Package is not available for this operating system"))}}
   if self.visiting.contains(id){return Err(DeltaError::conflict("Dependency cycle detected"))}if self.done.contains(id){return Ok(())}if self.done.len()+self.visiting.len()>64{return Err(DeltaError::bad_request("Dependency graph too large"))}
   self.visiting.insert(id.into());
   for d in parse(&item["manifest"])?{
    let chosen=d.required||(root&&self.selected.contains(&d.id));
    if d.kind=="core" {if chosen&&!matches(crate::VERSION,&d.version){return Err(DeltaError::conflict("Incompatible core version"))}continue}
-   let existing=self.rows.iter().find(|r|r["metadata"]["ui"]["id"]==d.id||r["id"]==d.id);
-   let ready=existing.map(|r|matches(r["version"].as_str().unwrap_or(""),&d.version)&&r["enabled"]!=false&&r["registered"]!=false).unwrap_or(false);
+   let existing=if d.kind=="provider"{self.bindings.get(&format!("{id}:{}",d.id)).and_then(|component|self.rows.iter().find(|r|r["id"]==*component))}else{self.rows.iter().find(|r|r["metadata"]["ui"]["id"]==d.id||r["id"]==d.id)};
+   let ready=existing.map(|r|matches(if d.kind=="provider"{r["metadata"]["contracts"].get(d.contract.as_deref().unwrap_or(&d.id)).and_then(Value::as_str).unwrap_or("")}else{r["version"].as_str().unwrap_or("")},&d.version)&&r["enabled"]!=false&&r["registered"]!=false).unwrap_or(false);
    if !chosen{if !ready{self.warnings.push(json!({"id":d.id,"features":d.features,"reason":"optional_dependency_unavailable"}))}continue}
-   if d.kind!="plugin" {if !ready{return Err(DeltaError::conflict("Select a compatible provider explicitly before installation"))}continue}
+   if d.kind!="plugin" {if !ready{return Err(DeltaError::conflict("Select a compatible provider explicitly before installation"))}
+    if d.kind=="provider" {let current=existing.unwrap();let mut release=current.clone();release["manifest"]=current["metadata"]["ui"].clone();release["id"]=current["metadata"]["ui"]["id"].as_str().map(|s|json!(s)).unwrap_or_else(||current["id"].clone());self.visit(&release,false)?;}continue}
    if let Some(e)=existing {if e["enabled"]==false{return Err(DeltaError::conflict("A required dependency is disabled; enable it explicitly"))}if e["registered"]==false{return Err(DeltaError::conflict("A required dependency is offline; recover it before installation"))}}
-   let next=self.catalog.iter().find(|r|r["id"]==d.id).ok_or_else(||DeltaError::not_found("Required dependency is not in the catalog"))?;
-   if !ready&&!matches(next["version"].as_str().unwrap_or(""),&d.version){return Err(DeltaError::conflict("No compatible dependency release"))}
    // Validate transitive required edges even when the immediate provider is already installed.
-   if ready{let current=existing.unwrap();let mut release=current.clone();release["manifest"]=current["metadata"]["ui"].clone();release["id"]=json!(d.id);self.visit(&release,false)?;}else{self.visit(next,false)?}
+   if ready{let current=existing.unwrap();let mut release=current.clone();release["manifest"]=current["metadata"]["ui"].clone();release["id"]=json!(d.id);self.visit(&release,false)?;}else{let next=self.catalog.iter().find(|r|r["id"]==d.id).ok_or_else(||DeltaError::not_found("Required dependency is not in the catalog"))?;if !matches(next["version"].as_str().unwrap_or(""),&d.version){return Err(DeltaError::conflict("No compatible dependency release"))}self.visit(next,false)?}
   }
   self.visiting.remove(id);self.done.insert(id.into());
   let already=self.rows.iter().any(|r|(r["metadata"]["ui"]["id"]==id||r["id"]==id)&&r["version"]==item["version"]);
   if root||!already{self.order.push(item.clone())}Ok(())
  }}
- let mut w=Walk{catalog,rows,selected,visiting:HashSet::new(),done:HashSet::new(),order:vec![],warnings:vec![]};w.visit(root,true)?;Ok(json!({"items":w.order,"warnings":w.warnings}))
+ let mut w=Walk{catalog,rows,selected,bindings,visiting:HashSet::new(),done:HashSet::new(),order:vec![],warnings:vec![]};w.visit(root,true)?;Ok(json!({"items":w.order,"warnings":w.warnings}))
 }
 static BINDING_WRITE:Mutex<()>=Mutex::new(());
 pub struct Dependencies;
@@ -111,4 +113,16 @@ pub struct Dependencies;
  #[test]fn ranges_and_invalid_schema(){assert!(matches("1.2.3",">=1.0.0, <2.0.0"));assert!(!matches("2.0.0","^1.2"));assert!(parse(&json!({"dependencies":[{"id":"x","version":"??"}]})).is_err())}
  #[test]fn optional_dependencies_are_explicit_and_ordered(){let i=json!({"plugins":[{"id":"web","version":"1.0.0","manifest":{"dependencies":[{"id":"mcp","version":"^1","features":["mcp"]}]}},{"id":"mcp","version":"1.0.0","manifest":{}}]});let p=plan(&i,"web",&[],&[]).unwrap();assert_eq!(p["items"].as_array().unwrap().len(),1);assert_eq!(p["warnings"].as_array().unwrap().len(),1);let p=plan(&i,"web",&["mcp".into()],&[]).unwrap();assert_eq!(p["items"][0]["id"],"mcp");assert!(plan(&i,"web",&["unknown".into()],&[]).is_err())}
  #[test]fn cycles_and_incompatibility_fail_before_execution(){let i=json!({"plugins":[{"id":"a","version":"1.0.0","manifest":{"dependencies":[{"id":"b","version":"^1","required":true}]}},{"id":"b","version":"1.0.0","manifest":{"dependencies":[{"id":"a","version":"^1","required":true}]}}]});assert!(plan(&i,"a",&[],&[]).is_err());let i=json!({"plugins":[{"id":"a","version":"1.0.0","manifest":{"dependencies":[{"id":"b","version":"^2","required":true}]}},{"id":"b","version":"1.0.0","manifest":{}}]});assert!(plan(&i,"a",&[],&[]).is_err())}
+ #[test]fn installed_third_party_and_provider_dependencies_are_checked(){
+ let index=json!({"plugins":[{"id":"consumer","version":"1.0.0","manifest":{"dependencies":[{"id":"custom","version":"^1","required":true}]}}]});
+ let rows=vec![json!({"id":"custom-runtime","version":"1.0.0","metadata":{"ui":{"id":"custom"}}})];
+ assert_eq!(plan(&index,"consumer",&[],&rows).unwrap()["items"].as_array().unwrap().len(),1);
+ let index=json!({"plugins":[{"id":"consumer","version":"1.0.0","manifest":{"dependencies":[{"id":"backend","kind":"provider","contract":"store","version":"^1","required":true}]}}]});
+ let rows=vec![json!({"id":"custom-runtime","version":"1.0.0","metadata":{"contracts":{"store":"1.2.0"},"ui":{"id":"custom","dependencies":[{"id":"absent","version":"^1","required":true}]}}})];
+ let binds=BTreeMap::from([("consumer:backend".into(),"custom-runtime".into())]);
+ assert!(plan_bound(&index,"consumer",&[],&rows,&binds).is_err());
+ assert!(plan(&index,"consumer",&[],&rows).is_err());
+ }
+ #[test]fn unsupported_platform_fails_before_install(){let index=json!({"plugins":[{"id":"other-os","version":"1.0.0","manifest":{"runtime":{"platforms":["not-this-os"]}}}]});assert!(plan(&index,"other-os",&[],&[]).is_err());}
+
 }

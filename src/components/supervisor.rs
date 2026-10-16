@@ -124,7 +124,8 @@ fn spawn_process(m: &mut Managed, kernel: &Arc<Kernel>, config: &Arc<Config>) {
     for (k, v) in &m.spec.env {
         cmd.env(k, v.as_str().map(String::from).unwrap_or_else(|| v.to_string()));
     }
-    cmd.env("DELTA_URL", kernel.local_url())
+    cmd.env("DELTA_HOME", &config.home)
+        .env("DELTA_URL", kernel.local_url())
         .env("DELTA_TOKEN", token)
         .env("DELTA_COMPONENT_ID", &id)
         .env("DELTA_NODE", &kernel.name)

@@ -1,41 +1,37 @@
 # Verification report
 
-## Automated source checks
+## Current split-service source checks
 
-- Core: native Linux build; 7 integration tests and 1 SDK doctest. Includes node pairing/routing, scopes, external registration, caller preservation, CLI node kind, signed-login replay and key revocation, and administrative-delegation limits.
-- Native GitHub Actions: Linux and Windows `cargo test --locked` pass. Release builds produce Linux x64/ARM64 musl and Windows x64 binaries.
-- Web: strict TypeScript production build; 22 contract/registry/layout/endpoint/chart-query tests and 12 server/security tests.
-- Storage: 5 file/schema/parameterized-query/owner-isolation tests.
-- Typing: 4 aggregate/privacy/outbox tests.
-- UI locale checks: EN/RU key and interpolation parity; no hardcoded Russian literals or bare JSX text in owned UI source. Plugin presentation has separate EN/RU manifest patches.
+- Core: Linux build, 17 integration tests, dependency unit tests, host-runtime tests and SDK doctest. Portable builds also run the dependency unit tests. The integration suite exercises scopes, pairing, identity, external invocation forwarding, optional feature gates and explicit contract provider selection.
+- Bootstrap: five installer regressions, including a catalog component outside the old default preset, dependency approval and service installation failure handling.
+- Shared UI: TypeScript production build, 32 contract/registry/layout tests, six Host Bridge tests, EN/RU key and interpolation parity.
+- Web: production build, shared contract tests and 56 server/security tests. Independent service test fixtures are development-only immutable archives, not production imports.
+- MCP: 11 tests, including headless HTTP, legacy profile migration, canonical metric restrictions and coexistence with Type's trainer port.
+- Updater: 13 tests. Provision: eight tests. Observability: six tests.
 
-## Real integration checks
+Consult each release workflow for platform-specific results. A cross-compiled binary is not evidence of a completed physical-device installation test.
 
-Both file storage and native PostgreSQL 15.18 + TimescaleDB 2.17.2 were exercised, not replaced with mock stores. The PostgreSQL extension and hypertable are real. Switching file → PostgreSQL → file was tested with explicit acknowledgement; each backend retains its own data, without pretending to migrate it. The bundled Docker Compose image was not separately launched here.
+## Live isolated checks
 
-A live node with all three independent plugins passed discovery, RU/EN aggregate ingestion, duplicate-session rejection, outbox flush, storage deduplication, filtered/grouped metrics, comparison queries, dashboard save/load, node telemetry/ping, token expiry creation and restricted-delegation denial (`delta-web/tests/e2e-live.mjs`).
+A disposable local Core ran all four extracted services with no Web process. MCP initialize/tool discovery, updater status, provisioning preflight and observed event persistence worked through their own APIs. Web compatibility aliases were then tested against the same services, with original-caller scope denial and private event visibility. Stopping Web did not stop the independent service processes.
 
-Real HTTP tests passed signed browser login, one-use challenge rejection, key/session revocation, installer bootstrap exchange, MCP initialize/list/call, disallowed tool/source denial and profile revocation (`tests/onboarding-live.mjs`). JSON schemas now describe nested metric arguments so MCP clients can construct calls rather than guessing undocumented payloads.
+Desktop 1440px and mobile 390px browser checks covered RU/EN dependency panels and optional feature availability. Stopping MCP returned `missing_dependency` (HTTP 424), hid the unavailable constructor and left unrelated plugin discovery working. No page errors or horizontal page overflow were observed in these checks. These tests ran in a sandbox, not on the user's PC or VPS.
 
-Two independent local nodes were paired. Directional administrative trust, remote process restart, denial of broad read-only administrative calls, peer discovery and forwarding a typing record into hub storage with the authenticated remote node ID were tested. This verifies reachable-node routing, not Internet NAT traversal or replication.
-
-## Browser checks
-
-Desktop 1440×1000 and mobile 390×844: overview, dashboards, plugins/detail/settings, nodes/detail, contracts, events, access, settings, keys and MCP. No page errors or horizontal page overflow. Sparse samples can be shown as dots or connected lines, areas, steps and time bars. Lines connect observed values by default; the gap switch preserves breaks without changing missing values. Browser regressions verify all five modes, bucket queries, saved reloads and mobile rendering. Palette buttons are checked against their own panel bounds at widths 320, 360, 390, 768 and 1440 pixels. MCP and storage forms were visually inspected after layout fixes.
-
-First manual login accepts `/api` before authentication and keeps API secrets out of localStorage. Automatic installer login uses an HttpOnly cookie instead. Product screenshots use live node telemetry and explicitly generated aggregate-only typing sessions; they are not personal keystroke captures.
+Historical checks also exercised two local paired nodes, file storage and native PostgreSQL 15.18 with TimescaleDB 2.17.2. Those older runs do not establish that the current managed-container or physical Windows/Android installation has been tested. Storage 0.4.x now implements explicit verified backend copying with backups; review its dedicated tests and migration status.
 
 ## Release installation checks
 
-`.github/workflows/install-test.yml` installs published binaries and all plugin release packages on Linux/Windows, using paths with spaces and no Rust compilation. The public release smoke test [38716266968](https://github.com/n-ycta/delta/actions/runs/38716266968) passed on both platforms with core 0.3.1, web 0.2.5, storage 0.2.1 and typing 0.2.1. A separate fresh Linux installation from the same public downloads also passed. `scripts/verify-install.mjs` verifies file backend, typing ingestion, all plugin registrations and web HTTP. Consult the latest **Prebuilt installation smoke test** run for the release-specific result; compiling a Windows binary alone is not a claim of a completed Windows install test.
+The prebuilt installation workflow installs published Core and plugin packages on Linux/Windows without Rust compilation. Release-specific status is authoritative; an older successful workflow is not proof of the current release. Catalog entries must be populated from downloaded release assets after verifying SHA256SUMS and manifest/package versions.
 
-## Boundaries
+## Boundaries and incomplete work
 
-- No hosted relay/NAT traversal, automatic data replication, automatic cross-backend migration or cryptographically signed release chain.
-- No system-wide event stream or historical CPU/memory collector. Supervisor per-process CPU/memory is unavailable, not invented. Untimestamped supervisor log lines use retrieval timestamps in the UI.
-- Plugins execute with current-user OS rights, not a sandbox. The official store is not an unrestricted third-party repository downloader.
-- Windows autostart is a current-user sign-in launcher, not a privileged pre-login Windows service. No macOS/Android prebuilt one-command installer is supplied.
-- No OS-wide keyboard interception; trainer is opt-in, aggregate-only and rejects IME/composition counting.
-- MCP is tool-only stateless Streamable HTTP with explicit bearer configuration; not OAuth/SSE/resource subscription support. Redaction is structural, not semantic removal of secrets from arbitrary log text.
+- Native Desktop and Android hosts remain previews with limited screens, not full Web parity. Android physical-device/background lifecycle and credential-vault work remain incomplete. Windows packages are unsigned previews.
+- Shared UI delivery is currently bundled with each host. Independent activation/rollback and a cryptographically signed release chain are not implemented.
+- No hosted relay/NAT traversal, automatic data replication, atomic multi-package installation or durable restart-resumable package jobs.
+- Observability samples node telemetry and observed lifecycle events; it is not an OS-wide event stream. Missing periods stay missing. Per-process telemetry is not invented.
+- Plugins execute with current-user OS rights, not in an OS sandbox. Global-owner-only operations remain restricted even if a narrow administrative scope is granted.
+- Dependency resolution and provider binding are local-node. UI-package activation and system prerequisite installation are not implemented by the plugin resolver.
+- Type includes opt-in native collectors on supported platforms; this report does not claim physical keyboard permission/IME testing across every desktop environment.
+- MCP is tool-only HTTP with bearer configuration, not OAuth/SSE/resource subscriptions. Redaction is structural, not semantic scrubbing of arbitrary text.
 
-Private test credentials, database connection URLs, node state and session files remain outside Git and delivery archives. Commit messages and READMEs are English, authored by the repository owner's configured account.
+Private tokens, connection credentials, node profiles and test state stay outside repositories and delivery archives. Technical documentation is English; TODO and roadmap files are not published.

@@ -1,5 +1,13 @@
 # Changelog
 
+## [v0.4.4]
+
+- Resolve compatible installed third-party dependencies without requiring an official catalog entry.
+- Respect explicit provider bindings during installation planning and check declared operating-system support.
+- Resolve installer plugin names from catalog IDs/components rather than a fixed three-plugin pool.
+- Require explicit approval for extra executable dependencies; do not silently add Storage to a Web-only selection.
+- Always inject the actual node profile path into supervised components.
+
 ## [v0.4.3]
 
 - Add invocation-bound external-component forwarding without service-credential elevation.

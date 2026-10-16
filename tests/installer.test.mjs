@@ -22,3 +22,9 @@ test('failed service installation must not silently fall back to a temporary nod
   const {access}=await import('node:fs/promises');await assert.rejects(access(home+'/unexpected-background-node'));
  }finally{await rm(home,{recursive:true,force:true});}
 });
+
+test('bootstrap resolves arbitrary catalog components and does not silently add Storage',async()=>{
+ const home=await mkdtemp(tmpdir()+'/delta-dynamic-plugin-'),calls=[];
+ const item={id:'dev.example.sensor',component:'sensor',version:'1.0.0',sha256:'fixture',manifest:{dependencies:[]}};
+ const server=createServer(async(req,res)=>{let b='';for await(const c of req)b+=c;const q=JSON.parse(b);calls.push(q);const values={'core.info':{},'packages.catalog':{plugins:[item]},'core.components':[],'packages.plan':{items:[item],warnings:[]},'packages.install':{jobId:'j'},'packages.jobs':[{id:'j',status:'complete'}]};res.setHeader('content-type','application/json');res.end(JSON.stringify({ok:true,result:values[q.capability]}))});await new Promise(r=>server.listen(0,'127.0.0.1',r));try{await writeFile(home+'/config.json',JSON.stringify({port:server.address().port}));await writeFile(home+'/admin.token','fixture');await exec(process.execPath,[root+'/scripts/bootstrap.mjs','--plugins','sensor','--no-service'],{env:{...process.env,DELTA_HOME:home}});assert.equal(calls.find(c=>c.capability==='packages.install').args.id,item.id);assert(!calls.some(c=>c.args.id==='dev.delta.db'));}finally{server.closeAllConnections();await new Promise(r=>server.close(r));await rm(home,{recursive:true,force:true})}
+});

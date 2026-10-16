@@ -74,12 +74,12 @@ async fn install(k:Arc<Kernel>,p:Principal,item:Value)->Result<Value>{
  fn capabilities(&self)->Vec<CapSpec>{vec![cap("packages.catalog","Browse official GitHub release packages",json!({}),false,false),cap("packages.install","Install or update a verified official package",json!({"id":{"type":"string","required":true},"expectedVersion":{"type":"string"},"expectedSha256":{"type":"string"},"optionalDependencies":{"type":"array"},"approveDependencies":{"type":"boolean"}}),true,false),cap("packages.plan","Resolve package dependencies before installation",json!({"id":{"type":"string","required":true},"optionalDependencies":{"type":"array"}}),false,false),cap("packages.jobs","Read installation job status",json!({}),true,false)]}
  async fn handle(&self,c:&str,a:Value,ctx:&CallContext)->Result<Value>{match c{
  "packages.catalog"=>catalog().await,
- "packages.plan"=>{let index=catalog().await?;let selected:Vec<String>=serde_json::from_value(a.get("optionalDependencies").cloned().unwrap_or(json!([]))).map_err(|_|DeltaError::bad_request("Invalid dependency selection"))?;crate::components::dependencies::plan(&index,a["id"].as_str().unwrap_or(""),&selected,&crate::components::dependencies::installed(&ctx.kernel))},
+ "packages.plan"=>{let index=catalog().await?;let selected:Vec<String>=serde_json::from_value(a.get("optionalDependencies").cloned().unwrap_or(json!([]))).map_err(|_|DeltaError::bad_request("Invalid dependency selection"))?;crate::components::dependencies::plan_for_kernel(&ctx.kernel,&index,a["id"].as_str().unwrap_or(""),&selected)},
  "packages.jobs"=>Ok(json!(self.jobs.lock().unwrap().values().cloned().collect::<Vec<_>>())),
  "packages.install"=>{if !ctx.principal.is_admin(){return Err(DeltaError::forbidden("Installing executable packages requires global admin"))}let index=catalog().await?;let item=index["plugins"].as_array().and_then(|items|items.iter().find(|v|v["id"]==a["id"])).cloned().ok_or_else(||DeltaError::not_found("Package not in official index"))?;
  checked_item(&item,&a)?;
  let selected:Vec<String>=serde_json::from_value(a.get("optionalDependencies").cloned().unwrap_or(json!([]))).map_err(|_|DeltaError::bad_request("Invalid dependency selection"))?;
- let plan=crate::components::dependencies::plan(&index,a["id"].as_str().unwrap_or(""),&selected,&crate::components::dependencies::installed(&ctx.kernel))?;
+ let plan=crate::components::dependencies::plan_for_kernel(&ctx.kernel,&index,a["id"].as_str().unwrap_or(""),&selected)?;
  let items=plan["items"].as_array().unwrap().clone();
  if items.len()>1 && a["approveDependencies"]!=true{return Err(DeltaError::conflict("Dependency installation requires explicit approval; inspect packages.plan"))}
 

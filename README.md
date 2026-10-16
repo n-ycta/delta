@@ -44,7 +44,7 @@ Read the script before running it. Respect your organization's PowerShell execut
 
 The console opens at **http://127.0.0.1:7710** with a one-use owner link. On a headless VPS the installer prints an SSH-tunnel command instead. The owner link expires after five minutes; run the installer again with `--open` (PowerShell: `-Open`) to issue a new one. It does not reinstall an already working node. To force a binary/runtime download, set `DELTA_FORCE_DOWNLOAD=1` before running the installer.
 
-Linux uses a systemd **user** service when available, otherwise a detached process with `node.log`. Windows installs a **current-user sign-in launcher**, not a privileged Windows service. A bare node does not expose a web UI until the web plugin is installed.
+Linux uses a systemd **user** service. Service installation failure is reported; a detached temporary process is available only with explicit `--no-service`. Windows installs a **current-user sign-in launcher**, not a privileged Windows service. A bare node does not expose a web UI until the web plugin is installed.
 
 ## Your control room
 
@@ -58,19 +58,25 @@ Linux uses a systemd **user** service when available, otherwise a detached proce
 
 ![Typing dashboard with generated QA aggregates](docs/images/metrics.png)
 
-These are real browser captures against a local node. The typing history uses generated aggregate-only QA sessions, not captured personal text. CPU and memory are live. System load history and a system-wide event stream are not connected yet; the UI says so instead of inventing data.
+These are real browser captures against a local node. The typing history uses generated aggregate-only QA sessions, not captured personal text. CPU and memory are live. Delta Observability stores sampled load history through Storage and maintains an observed lifecycle journal. This is not a system-wide event stream.
 
 ## Plugins
 
 | Repository | Purpose |
 | --- | --- |
-| [delta-web](https://github.com/n-ycta/delta-web) | Responsive console, dashboards, store, key access and MCP gateways |
+| [delta-web](https://github.com/n-ycta/delta-web) | Browser host, sessions and shared UI compatibility facade |
 | [delta_db](https://github.com/n-ycta/delta_db) | Unified record/document contract; file quick start or PostgreSQL + TimescaleDB |
 | [delta_type](https://github.com/n-ycta/delta_type) | Opt-in RU/EN typing aggregates; never records typed text |
+| [delta-mcp](https://github.com/n-ycta/delta-mcp) | Headless HTTP MCP gateways and scoped profiles |
+| [delta-updater](https://github.com/n-ycta/delta-updater) | Release checks, schedules and update jobs |
+| [delta-provision](https://github.com/n-ycta/delta-provision) | SSH onboarding and connection lifecycle |
+| [delta-observability](https://github.com/n-ycta/delta-observability) | Observed events, telemetry sampling and metric queries |
+
+Shared screens live in [delta-ui](https://github.com/n-ycta/delta-ui). [Desktop](https://github.com/n-ycta/delta-desktop) and [Android](https://github.com/n-ycta/delta-android) are preview hosts, not full Web replacements.
 
 The store reads [the official index](registry/plugins.json). Downloads are version-pinned and SHA256-checked, archives reject links/path traversal, npm lifecycle scripts are disabled, and failed readiness checks restore the previous supervisor configuration. Plugins execute native code with the current user's OS permissions — **not a sandbox**. Review requested scopes and trust the publisher. Only owners or explicitly trusted administrative peers can install code.
 
-Storage is a plugin, not a core dependency. Local files let you start without a database server; configure PostgreSQL/TimescaleDB in the storage plugin's settings when needed. Switching backends is explicit and **does not migrate existing data**. File mode is limited to 100,000 records and intended for a small personal setup.
+Storage is a plugin, not a core dependency. Local files let you start without a database server; configure PostgreSQL/TimescaleDB in the storage plugin's settings when needed. In Storage 0.4.x, a new profile attempts managed PostgreSQL (Docker/Podman required) unless existing file data is present. Select file mode explicitly for a container-free setup. Backend changes perform a verified copy with backups; review capacity and migration status before switching. File mode is limited to 100,000 records and intended for a small personal setup.
 
 ## Add another device
 
@@ -93,7 +99,7 @@ See [the security and operations guide](docs/platform.md) for file locations, ba
 
 ## AI access through MCP
 
-Open **MCP gateways** to create Analytics, Operations or custom profiles. Each gets a separate bearer credential and kernel token. Pick explicit tools, permitted nodes/plugins, maximum time range/rows and field-redaction rules. Copy the generated URL/header configuration into an MCP client that supports remote Streamable HTTP.
+Install the optional Delta MCP plugin, then open **MCP gateways** to create Analytics, Operations or custom profiles. Each gets a separate bearer credential and kernel token. Pick explicit tools, permitted nodes/plugins, maximum time range/rows and field-redaction rules. Copy the generated URL/header configuration into an MCP client that supports remote Streamable HTTP.
 
 The endpoint implements stateless JSON-RPC initialize/ping/tools-list/tools-call over HTTP. It does not need an external MCP proxy. Credential management, arbitrary token creation, shell execution and package installation are deliberately excluded from the MCP tool catalog. Revoke a profile to invalidate its token. Client secrets are shown once; use HTTPS for remote clients.
 
@@ -122,3 +128,7 @@ Run `node --test tests/installer.test.mjs` alongside `cargo test --locked` to ch
 The default installer now enables or repairs the user service even if a temporary node is already online. On Linux, an owned temporary process is safely stopped before handing control to systemd. Service setup failures are no longer silently presented as a reboot-ready installation; `--no-service` is an explicit temporary/development mode only.
 
 Signed-login token hashes persist across core restarts. The optional remembered-device challenge binds a 30-day lifetime to the signature; ordinary signed sessions remain limited to eight hours. Revoking the key also revokes its persisted sessions. Existing expired or in-memory sessions require one fresh login. Web and core changes must be deployed together for remembered-device login.
+
+### Declarative plugin dependencies (Core 0.4.3+, installer fixes in 0.4.4)
+
+The installer resolves catalog component names or stable plugin IDs, not a fixed plugin pool. Required dependencies are planned before execution; optional integrations require selection. Use `--with-optional` to explicitly select the chosen plugins' optional packages, or `--approve-dependencies` to approve additional required executable dependencies. Review requested scopes before approval. Missing optional providers disable only their declared features. See [dependency contracts](docs/dependencies.md) for compatibility, explicit provider bindings and removal protection. Group installation is ordered, not atomic.
