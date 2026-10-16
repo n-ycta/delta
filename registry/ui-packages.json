@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "packages": [
+    {
+      "id": "dev.delta.ui",
+      "kind": "ui-package",
+      "version": "0.1.0",
+      "repository": "https://github.com/n-ycta/delta-ui",
+      "sourceCommit": "52b034e94c3de66b310cbe242e790204c2f73e01",
+      "asset": "https://github.com/n-ycta/delta-ui/releases/download/v0.1.0/delta-ui.tar.gz",
+      "sha256": "3da6cfa4b7f172ce024cf336287a06783dfff891a075f7d2ba2204aa7618fc07",
+      "entry": "index.html",
+      "hostBridge": "^1.0.0",
+      "delivery": "bundled-only",
+      "independentActivation": false,
+      "publisherSignature": null
+    }
+  ]
+}
