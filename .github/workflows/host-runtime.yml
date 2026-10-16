@@ -1,0 +1,19 @@
+name: Native host contract
+on:
+  push:
+    paths: ['src/**', 'Cargo*', 'crates/**', '.github/workflows/host-runtime.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  embedded:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --locked --workspace
+      - run: cargo test --locked -p delta-host-runtime --no-default-features
+      - run: cargo check --locked -p delta-node --no-default-features --lib

@@ -1,6 +1,6 @@
 [package]
 name = "delta-node"
-version = "0.4.1"
+version = "0.4.2"
 edition = "2021"
 description = "Delta: one API for nodes, components and capabilities"
 license = "Apache-2.0"
@@ -28,8 +28,17 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 clap = { version = "4", features = ["derive"] }
 libc = "0.2"
 
-sysinfo = "0.33"
+sysinfo = { version = "0.33", optional = true }
 k256 = { version = "0.13", features = ["schnorr"] }
 
 flate2 = "1"
 tar = "0.4"
+
+[features]
+default = ["native-processes", "host-telemetry"]
+native-processes = []
+host-telemetry = ["dep:sysinfo"]
+
+[workspace]
+members = ["crates/host-runtime"]
+resolver = "2"

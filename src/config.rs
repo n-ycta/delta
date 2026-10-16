@@ -131,7 +131,10 @@ pub fn delta_home() -> PathBuf {
     if cfg!(windows) { std::env::var_os("LOCALAPPDATA").or_else(|| std::env::var_os("USERPROFILE")).map(PathBuf::from).unwrap_or_else(|| PathBuf::from(".")).join("Delta") } else { std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from(".")).join(".delta") }
 }
 
+#[cfg(feature = "host-telemetry")]
 fn hostname() -> String { sysinfo::System::host_name().unwrap_or_else(|| "node".into()) }
+#[cfg(not(feature = "host-telemetry"))]
+fn hostname() -> String { "node".into() }
 
 fn guess_ip() -> String {
     UdpSocket::bind("0.0.0.0:0")

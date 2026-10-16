@@ -1,5 +1,9 @@
 //! Assembles a node: config -> kernel -> built-in components -> transport -> ready.
-use crate::components::{Core, Exec, Peers, Supervisor, System, Tokens, Identity};
+use crate::components::{Core, Peers, Tokens, Identity};
+#[cfg(feature = "native-processes")]
+use crate::components::{Exec, Supervisor};
+#[cfg(feature = "host-telemetry")]
+use crate::components::System;
 use crate::config::Config;
 use crate::errors::{DeltaError, Result};
 use crate::kernel::{Component, Kernel};
@@ -7,6 +11,10 @@ use crate::server;
 use std::{sync::Arc, time::Duration};
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 
+/// Explicit assembly policy; compiled desktop support never implies mobile permission.
+#[derive(Clone,Copy,Debug)]
+pub struct HostPolicy { pub processes: bool, pub telemetry: bool }
+impl HostPolicy { pub const DESKTOP: Self = Self {processes:true,telemetry:true}; pub const MOBILE: Self = Self {processes:false,telemetry:false}; }
 pub struct Node {
     pub config: Arc<Config>,
     pub kernel: Arc<Kernel>,
@@ -18,6 +26,10 @@ pub struct Node {
 impl Node {
     /// Start a node. `port` overrides the configured port (use `Some(0)` for a random one).
     pub async fn start(config: Arc<Config>, port: Option<u16>) -> Result<Node> {
+        Self::start_with_policy(config,port,HostPolicy::DESKTOP).await
+    }
+    pub async fn start_with_policy(config: Arc<Config>, port: Option<u16>, policy:HostPolicy) -> Result<Node> {
+        let _ = policy;
         let (listen, cfg_port, tls) = config.read(|c| (c.listen.clone(), c.port, c.tls_cert.is_some()));
         if tls {
             eprintln!("delta: tls_cert is set, but this build serves plain HTTP; put a TLS proxy or WireGuard in front");
@@ -39,18 +51,22 @@ impl Node {
             kernel.add(Arc::new(Tokens)).await?;
         }
         kernel.add(Arc::new(Identity::new())).await?;
-        kernel.add(Arc::new(crate::components::Packages::new())).await?;
+        #[cfg(feature = "native-processes")]
+        if policy.processes {kernel.add(Arc::new(crate::components::Packages::new())).await?;}
         if b.peers {
             let peers: Arc<dyn Component> = Peers::new(config.clone());
             kernel.add(peers).await?;
         }
-        if b.system {
+        #[cfg(feature = "host-telemetry")]
+        if b.system && policy.telemetry {
             kernel.add(Arc::new(System)).await?;
         }
-        if b.exec {
+        #[cfg(feature = "native-processes")]
+        if b.exec && policy.processes {
             kernel.add(Arc::new(Exec::new(config.clone()))).await?;
         }
-        if b.supervisor {
+        #[cfg(feature = "native-processes")]
+        if b.supervisor && policy.processes {
             // last: starts external processes
             let sup: Arc<dyn Component> = Supervisor::new(config.clone());
             kernel.add(sup).await?;
