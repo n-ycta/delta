@@ -1,17 +1,17 @@
 param(
- [string]$Plugins='storage,web', [switch]$Choose, [switch]$Open, [switch]$NoService,
+ [string]$Plugins='storage,web', [switch]$Choose, [switch]$Open, [switch]$NoService, [switch]$WithOptional, [switch]$ApproveDependencies,
  [string]$Name=$env:COMPUTERNAME, [string]$Listen='127.0.0.1', [int]$Port=7700,
  [string]$PublicUrl='', [string]$JoinUrl='', [string]$JoinCode='', [switch]$TrustHub
 )
 $ErrorActionPreference='Stop'
 if ($env:PROCESSOR_ARCHITECTURE -ne 'AMD64') { throw 'Windows x64 is required.' }
-$version=if($env:DELTA_VERSION){$env:DELTA_VERSION}else{'v0.4.1'}
+$version=if($env:DELTA_VERSION){$env:DELTA_VERSION}else{'v0.4.4'}
 $homeDir=if($env:DELTA_HOME){$env:DELTA_HOME}else{Join-Path $env:LOCALAPPDATA 'Delta'}
 $env:DELTA_HOME=$homeDir
 if($Choose){$choice=Read-Host 'Install [1] node + web, [2] node + web + typing, [3] bare node';$Plugins=switch($choice){'2'{'storage,web,typing'}'3'{'none'}default{'storage,web'}};$Choose=$false}
 if($env:DELTA_FORCE_DOWNLOAD -ne '1' -and (Test-Path "$homeDir/runtime/node.exe") -and (Test-Path "$homeDir/bin/delta.exe") -and (Test-Path "$homeDir/bin/bootstrap.mjs")) {
  $options=@('--plugins',$Plugins,'--name',$Name,'--listen',$Listen,'--port',"$Port")
- if($PublicUrl){$options+=@('--public-url',$PublicUrl)};if($JoinUrl){$options+=@('--join-url',$JoinUrl,'--join-code',$JoinCode)};if($TrustHub){$options+='--trust-hub'};if($Open){$options+='--open'};if($NoService){$options+='--no-service'}
+ if($PublicUrl){$options+=@('--public-url',$PublicUrl)};if($JoinUrl){$options+=@('--join-url',$JoinUrl,'--join-code',$JoinCode)};if($TrustHub){$options+='--trust-hub'};if($Open){$options+='--open'};if($NoService){$options+='--no-service'};if($WithOptional){$options+='--with-optional'};if($ApproveDependencies){$options+='--approve-dependencies'}
  & "$homeDir/runtime/node.exe" "$homeDir/bin/bootstrap.mjs" @options
  if($LASTEXITCODE -ne 0){throw 'Delta setup failed'};return
 }
@@ -26,6 +26,7 @@ try {
  tar -xzf "$tmp/delta.tar.gz" -C $tmp
  if($LASTEXITCODE -ne 0){throw 'Delta extraction failed'}
  Copy-Item "$tmp/delta.exe","$tmp/bootstrap.mjs","$tmp/upgrade.mjs" "$homeDir/bin" -Force
+ Set-Content -Path "$homeDir/bin/release-version" -Value $version -Encoding ascii
  $nodeVersion='v24.14.1';$asset="node-$nodeVersion-win-x64.zip"
  Invoke-WebRequest "https://nodejs.org/dist/$nodeVersion/$asset" -OutFile "$tmp/node.zip"
  Invoke-WebRequest "https://nodejs.org/dist/$nodeVersion/SHASUMS256.txt" -OutFile "$tmp/node-sums"
@@ -38,7 +39,7 @@ try {
  if($Choose){$choice=Read-Host 'Install [1] node + web, [2] node + web + typing, [3] bare node';$Plugins=switch($choice){'2'{'storage,web,typing'}'3'{'none'}default{'storage,web'}}}
  $options=@('--plugins',$Plugins,'--name',$Name,'--listen',$Listen,'--port',"$Port")
  if($PublicUrl){$options+=@('--public-url',$PublicUrl)};if($JoinUrl){$options+=@('--join-url',$JoinUrl,'--join-code',$JoinCode)}
- if($TrustHub){$options+='--trust-hub'};if($Open){$options+='--open'};if($NoService){$options+='--no-service'}
+ if($TrustHub){$options+='--trust-hub'};if($Open){$options+='--open'};if($NoService){$options+='--no-service'};if($WithOptional){$options+='--with-optional'};if($ApproveDependencies){$options+='--approve-dependencies'}
  & $env:DELTA_NODE_BINARY "$homeDir/bin/bootstrap.mjs" @options
  if($LASTEXITCODE -ne 0){throw 'Delta setup failed'}
 } finally { Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue }
