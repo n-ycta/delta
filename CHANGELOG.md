@@ -11,6 +11,18 @@
 
 - No pending changes.
 
+## [v0.4.2]
+
+### Features
+- Portable library assembly without desktop process/npm components or host telemetry; explicit mobile policy also applies when desktop features are compiled into a workspace.
+- Credential-private native host runtime with bounded typed requests, persistent identity, exclusive profile lease and verified attachment to an existing local node.
+
+### Security
+- The native owner credential remains in Rust and is never returned as Host Bridge metadata. Mobile assembly does not register process/package capabilities.
+
+### Upgrade notes
+- Default CLI behaviour is preserved. Android/Desktop native hosts remain experimental; this release does not certify physical reboot/suspend, mobile background operation or secure-store integrations.
+
 ## [v0.4.1]
 
 ### Fixes

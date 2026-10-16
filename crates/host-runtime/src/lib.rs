@@ -58,7 +58,10 @@ impl HostRuntime {
     kernel.call(&request.capability,request.args,&principal,request.node.as_deref()).await}
   }
  }
- pub fn info(&self,host_version:&str,ui_version:&str)->Value{json!({"kind":self.kind,"version":host_version,"bridgeVersion":BRIDGE_VERSION,"coreVersion":self.core_version,"uiVersion":ui_version,"nodeId":self.node_id,"features":["embedded-node","capability-api","persistent-profile"],"lifecycle":"foreground","development":true})}
+ pub fn info(&self,host_version:&str,ui_version:&str)->Value{
+ let embedded=matches!(&self.backend,Backend::Embedded(_));
+ json!({"kind":self.kind,"version":host_version,"bridgeVersion":BRIDGE_VERSION,"coreVersion":self.core_version,"uiVersion":ui_version,"nodeId":self.node_id,"nodeMode":if embedded{"embedded"}else{"attached"},"features":[if embedded{"embedded-node"}else{"attached-node"},"capability-api","persistent-profile"],"lifecycle":if !embedded{"external"}else if self.kind=="android"{"foreground"}else{"tray"},"development":true})}
+
  pub async fn stop(&self){if let Backend::Embedded(state)=&self.backend {let node=state.lock().await.take();if let Some(node)=node {node.stop().await}}}
 }
 #[cfg(test)]mod tests {use super::*;
