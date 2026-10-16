@@ -8,6 +8,7 @@ const STATUS: &[(&str, u16)] = &[
     ("forbidden", 403),
     ("not_found", 404),
     ("conflict", 409),
+    ("missing_dependency", 424),
     ("timeout", 504),
     ("unavailable", 503),
     ("handler_error", 500),

@@ -36,6 +36,8 @@ async fn install(k:Arc<Kernel>,p:Principal,item:Value)->Result<Value>{
  if let Err(e)=unpack{let _=std::fs::remove_dir_all(&stage);return Err(DeltaError::bad_request(e.to_string()))}
  let manifest:Value=serde_json::from_slice(&std::fs::read(stage.join("manifest.json")).map_err(|e|DeltaError::bad_request(e.to_string()))?).map_err(|e|DeltaError::bad_request(e.to_string()))?;
  if manifest["id"]!=id||manifest["version"]!=version||manifest["metadata"]["ui"]["id"]!=item["id"]{return Err(DeltaError::forbidden("Manifest does not match release index"))}
+ if manifest["metadata"]["ui"].get("dependencies")!=item["manifest"].get("dependencies"){return Err(DeltaError::forbidden("Release dependency contract does not match the catalog"))}
+ crate::components::dependencies::enforce(&k,&manifest["metadata"]["ui"],&[])?;
  let node=std::env::var("DELTA_NODE_BINARY").unwrap_or_else(|_|{let p=k.config.home.join("runtime").join(if cfg!(windows){"node.exe"}else{"bin/node"});if p.exists(){p.to_string_lossy().into_owned()}else{"node".into()}});
  let npm_cli=k.config.home.join("runtime").join(if cfg!(windows){"node_modules/npm/bin/npm-cli.js"}else{"lib/node_modules/npm/bin/npm-cli.js"});
  let mut command=if npm_cli.exists(){let mut c=tokio::process::Command::new(&node);c.arg(npm_cli);c}else{
@@ -49,7 +51,7 @@ async fn install(k:Arc<Kernel>,p:Principal,item:Value)->Result<Value>{
  std::fs::rename(&stage,&dest).map_err(|e|DeltaError::unavailable(e.to_string()))?;
  let node=std::env::var("DELTA_NODE_BINARY").unwrap_or_else(|_|{let p=k.config.home.join("runtime").join(if cfg!(windows){"node.exe"}else{"bin/node"});if p.exists(){p.to_string_lossy().into_owned()}else{"node".into()}});let launch=dest.join("launch.mjs");let cwd=serde_json::to_string(&dest.to_string_lossy()).unwrap();std::fs::write(&launch,format!("process.chdir({cwd});await import('./server/main.mjs');")).map_err(|e|DeltaError::unavailable(e.to_string()))?;
  let old=k.config.read(|c|c.components.iter().find(|m|m.id==id).cloned());
- if old.is_some(){k.call("supervisor.remove",json!({"id":id}),&p,None).await?;}
+ if old.is_some(){k.call("supervisor.remove",json!({"id":id,"force":true}),&p,None).await?;}
  let data=k.config.home.join("data").join(id);let mut env=json!({"DATA_DIR":data,"DELTA_DATA":data});if let Some(o)=&old{env=serde_json::to_value(&o.env).unwrap();env["DATA_DIR"]=json!(data);env["DELTA_DATA"]=json!(data);}
  let scopes=item["scopes"].as_array().ok_or_else(||DeltaError::bad_request("Missing package scopes"))?;
  let result=k.call("supervisor.add",json!({"id":id,"command":[node,launch],"env":env,"enabled":old.as_ref().map(|o|o.enabled).unwrap_or(true),"scopes":scopes,"token_name":old.as_ref().and_then(|o|o.token_name.clone()).map(Value::String).unwrap_or_else(||item["id"].clone())}),&p,None).await;
@@ -62,21 +64,27 @@ async fn install(k:Arc<Kernel>,p:Principal,item:Value)->Result<Value>{
  let state=state.as_array().and_then(|items|items.iter().find(|m|m["id"]==id)).cloned().unwrap_or(json!({}));
  let logs=k.call("supervisor.logs",json!({"id":id,"lines":80}),&p,None).await.unwrap_or(json!([]));
  let diagnostic=save_diagnostic(&k.config.home,id,&json!({"process":state,"logs":logs}));
- let _=k.call("supervisor.remove",json!({"id":id}),&p,None).await;
+ let _=k.call("supervisor.remove",json!({"id":id,"force":true}),&p,None).await;
  let restoring=old.is_some();
  if let Some(o)=old{let _=k.call("supervisor.add",serde_json::to_value(o).unwrap(),&p,None).await;}
  Err(DeltaError::unavailable(format!("Plugin {id} did not register within 60 seconds; {}. {}",if restoring{"previous configuration restored"}else{"failed component removed"},if let Some(path)=diagnostic{format!("Private diagnostic: {}",path.display())}else{"Could not save private diagnostic".into()})))
 }
 #[async_trait]impl Component for Packages{
  fn id(&self)->&str{"packages"}fn version(&self)->String{"0.3.0".into()}
- fn capabilities(&self)->Vec<CapSpec>{vec![cap("packages.catalog","Browse official GitHub release packages",json!({}),false,false),cap("packages.install","Install or update a verified official package",json!({"id":{"type":"string","required":true},"expectedVersion":{"type":"string"},"expectedSha256":{"type":"string"}}),true,false),cap("packages.jobs","Read installation job status",json!({}),true,false)]}
+ fn capabilities(&self)->Vec<CapSpec>{vec![cap("packages.catalog","Browse official GitHub release packages",json!({}),false,false),cap("packages.install","Install or update a verified official package",json!({"id":{"type":"string","required":true},"expectedVersion":{"type":"string"},"expectedSha256":{"type":"string"},"optionalDependencies":{"type":"array"},"approveDependencies":{"type":"boolean"}}),true,false),cap("packages.plan","Resolve package dependencies before installation",json!({"id":{"type":"string","required":true},"optionalDependencies":{"type":"array"}}),false,false),cap("packages.jobs","Read installation job status",json!({}),true,false)]}
  async fn handle(&self,c:&str,a:Value,ctx:&CallContext)->Result<Value>{match c{
  "packages.catalog"=>catalog().await,
+ "packages.plan"=>{let index=catalog().await?;let selected:Vec<String>=serde_json::from_value(a.get("optionalDependencies").cloned().unwrap_or(json!([]))).map_err(|_|DeltaError::bad_request("Invalid dependency selection"))?;crate::components::dependencies::plan(&index,a["id"].as_str().unwrap_or(""),&selected,&crate::components::dependencies::installed(&ctx.kernel))},
  "packages.jobs"=>Ok(json!(self.jobs.lock().unwrap().values().cloned().collect::<Vec<_>>())),
  "packages.install"=>{if !ctx.principal.is_admin(){return Err(DeltaError::forbidden("Installing executable packages requires global admin"))}let index=catalog().await?;let item=index["plugins"].as_array().and_then(|items|items.iter().find(|v|v["id"]==a["id"])).cloned().ok_or_else(||DeltaError::not_found("Package not in official index"))?;
  checked_item(&item,&a)?;
+ let selected:Vec<String>=serde_json::from_value(a.get("optionalDependencies").cloned().unwrap_or(json!([]))).map_err(|_|DeltaError::bad_request("Invalid dependency selection"))?;
+ let plan=crate::components::dependencies::plan(&index,a["id"].as_str().unwrap_or(""),&selected,&crate::components::dependencies::installed(&ctx.kernel))?;
+ let items=plan["items"].as_array().unwrap().clone();
+ if items.len()>1 && a["approveDependencies"]!=true{return Err(DeltaError::conflict("Dependency installation requires explicit approval; inspect packages.plan"))}
+
  let id=random_hex(12);{let mut jobs=self.jobs.lock().unwrap();if jobs.values().any(|j|j["status"]=="installing"){return Err(DeltaError::conflict("Another installation is running"))}if jobs.len()>100{jobs.clear()}jobs.insert(id.clone(),json!({"id":id,"pluginId":a["id"],"status":"installing","startedAt":crate::util::now()}));}
- let jobs=self.jobs.clone();let k=ctx.kernel.clone();let p=ctx.principal.clone();let jid=id.clone();tokio::spawn(async move{let r=install(k,p,item).await;let mut jobs=jobs.lock().unwrap();let job=jobs.get_mut(&jid).unwrap();match r{Ok(v)=>{job["status"]=json!("complete");job["result"]=v},Err(e)=>{job["status"]=json!("failed");job["error"]=json!({"code":e.code,"message":e.message})}}});Ok(json!({"jobId":id,"status":"installing"}))},_=>Err(DeltaError::not_found("Unknown package operation"))}}
+ let jobs=self.jobs.clone();let k=ctx.kernel.clone();let p=ctx.principal.clone();let jid=id.clone();tokio::spawn(async move{let r=async{let mut completed=vec![];for release in items {let result=install(k.clone(),p.clone(),release).await?;completed.push(result);}Ok::<Value,DeltaError>(json!({"installed":completed,"warnings":plan["warnings"]}))}.await;let mut jobs=jobs.lock().unwrap();let job=jobs.get_mut(&jid).unwrap();match r{Ok(v)=>{job["status"]=json!("complete");job["result"]=v},Err(e)=>{job["status"]=json!("failed");job["error"]=json!({"code":e.code,"message":e.message})}}});Ok(json!({"jobId":id,"status":"installing"}))},_=>Err(DeltaError::not_found("Unknown package operation"))}}
 }
 
 #[cfg(test)] mod tests {

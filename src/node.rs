@@ -51,6 +51,7 @@ impl Node {
             kernel.add(Arc::new(Tokens)).await?;
         }
         kernel.add(Arc::new(Identity::new())).await?;
+        kernel.add(Arc::new(crate::components::Dependencies)).await?;
         #[cfg(feature = "native-processes")]
         if policy.processes {kernel.add(Arc::new(crate::components::Packages::new())).await?;}
         if b.peers {

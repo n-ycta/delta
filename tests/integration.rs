@@ -312,3 +312,40 @@ async fn remembered_signed_session_survives_disk_reload_and_revocation() {
     assert!(TokenStore::new(Arc::new(Config::load(n.home.clone()).unwrap())).authenticate(login["token"].as_str().unwrap()).is_none());
     n.close().await;
 }
+
+#[tokio::test]
+async fn forwarding_borrows_only_a_live_invocation_without_elevating_the_caller() {
+    let n=TestNode::new("delegation").await;
+    let manifest=json!({"id":"relay","version":"1.0.0","capabilities":[{"name":"read"}]});
+    let reg=n.admin.request("POST","/v1/components",Some(&manifest),None).await.unwrap();
+    let token=n.admin.call("tokens.create",json!({"name":"reader","scopes":["call:relay.read","call:core.info"]}),None,None).await.unwrap();
+    let reader=n.client(token["token"].as_str());
+    let pending=tokio::spawn(async move{reader.call("relay.read",json!({}),None,None).await});
+    let ext=n.node.kernel.get_external("relay",reg["session"].as_str().unwrap()).unwrap();
+    let inv=ext.next(Duration::from_secs(2)).await.unwrap();
+    let base=json!({"session":reg["session"],"invocation":inv["id"],"capability":"core.info","args":{}});
+    let info=n.admin.request("POST","/v1/components/relay/call",Some(&base),None).await.unwrap();
+    assert_eq!(info["name"],"delegation");
+    let mut forbidden=base.clone();forbidden["capability"]=json!("tokens.create");forbidden["args"]=json!({"name":"backdoor","scopes":["admin"]});forbidden["caller"]=json!({"scopes":["admin"]});
+    assert_eq!(code_of(n.admin.request("POST","/v1/components/relay/call",Some(&forbidden),None).await).await,"forbidden");
+    let mut wrong=base.clone();wrong["session"]=json!("wrong");assert!(n.admin.request("POST","/v1/components/relay/call",Some(&wrong),None).await.is_err());
+    let restricted=n.admin.call("tokens.create",json!({"name":"other-component","scopes":["register:other"]}),None,None).await.unwrap();
+    assert_eq!(code_of(n.client(restricted["token"].as_str()).request("POST","/v1/components/relay/call",Some(&base),None).await).await,"forbidden");
+    ext.resolve(inv["id"].as_str().unwrap(),json!({"ok":true,"result":true}));assert_eq!(pending.await.unwrap().unwrap(),true);
+    assert_eq!(code_of(n.admin.request("POST","/v1/components/relay/call",Some(&base),None).await).await,"not_found");
+    n.close().await;
+}
+
+#[tokio::test]
+async fn optional_dependencies_gate_only_the_declared_capability_and_recover_on_install() {
+    let n=TestNode::new("dependency-gates").await;
+    let manifest=json!({"id":"consumer","version":"1.0.0","metadata":{"ui":{"id":"dev.example.consumer","dependencies":[{"id":"dev.example.provider","version":"^1.0.0","required":false,"features":["reports"]}]}},"capabilities":[{"name":"base"},{"name":"reports","requires":["reports"]}]});
+    let reg=n.admin.request("POST","/v1/components",Some(&manifest),None).await.unwrap();
+    let status=n.admin.call("dependencies.status",json!({"id":"dev.example.consumer"}),None,None).await.unwrap();assert_eq!(status["ready"],true);assert_eq!(status["features"]["reports"]["available"],false);
+    assert_eq!(code_of(n.admin.call("consumer.reports",json!({}),None,None).await).await,"missing_dependency");
+    let admin=n.admin.clone();let pending=tokio::spawn(async move{admin.call("consumer.base",json!({}),None,None).await});let ext=n.node.kernel.get_external("consumer",reg["session"].as_str().unwrap()).unwrap();let inv=ext.next(Duration::from_secs(2)).await.unwrap();ext.resolve(inv["id"].as_str().unwrap(),json!({"ok":true,"result":"base works"}));assert_eq!(pending.await.unwrap().unwrap(),"base works");
+    let provider=json!({"id":"provider","version":"1.0.1","metadata":{"ui":{"id":"dev.example.provider"}},"capabilities":[]});n.admin.request("POST","/v1/components",Some(&provider),None).await.unwrap();
+    let status=n.admin.call("dependencies.status",json!({"id":"consumer"}),None,None).await.unwrap();assert_eq!(status["features"]["reports"]["available"],true);
+    let admin=n.admin.clone();let pending=tokio::spawn(async move{admin.call("consumer.reports",json!({}),None,None).await});let inv=ext.next(Duration::from_secs(2)).await.unwrap();ext.resolve(inv["id"].as_str().unwrap(),json!({"ok":true,"result":true}));assert_eq!(pending.await.unwrap().unwrap(),true);
+    n.close().await;
+}

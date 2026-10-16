@@ -171,6 +171,18 @@ async fn components(
             let inv = comp.next(Duration::from_secs_f64(t)).await;
             Ok(json!({"invocation": inv}))
         }
+        ("POST", ["call"]) => {
+            let id = data.get("invocation").and_then(Value::as_str)
+                .ok_or_else(|| DeltaError::bad_request("invocation required"))?;
+            let original = comp.invocation_principal(id)?;
+            let cap = data.get("capability").and_then(Value::as_str)
+                .ok_or_else(|| DeltaError::bad_request("capability required"))?;
+            let args = data.get("args").cloned().unwrap_or_else(|| json!({}));
+            let node = data.get("node").and_then(Value::as_str);
+            // Re-run normal authorization and routing. A service's admin token does not
+            // elevate the original caller; expired/wrong-component invocations fail closed.
+            k.call(cap, args, &original, node).await
+        }
         ("POST", ["result"]) => {
             let id = data.get("id").and_then(Value::as_str).unwrap_or("");
             let ok = data.get("ok").and_then(Value::as_bool).unwrap_or(false);

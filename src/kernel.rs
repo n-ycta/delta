@@ -44,13 +44,15 @@ pub struct CapSpec {
     pub admin: bool,
     #[serde(default)]
     pub public: bool,
+    #[serde(default)]
+    pub requires: Vec<String>,
 }
 
 /// Convenience constructor used by built-in components (`name` is the full `<component>.<action>`).
 pub fn cap(name: &str, description: &str, params: Value, admin: bool, public: bool) -> CapSpec {
     let catalog: Value = serde_json::from_str(include_str!("locales/ru.json")).expect("bundled locales");
     let localizations = catalog.get(name).map(|s| json!({"ru":{"description":s}})).unwrap_or(Value::Null);
-    CapSpec { name: name.into(), description: description.into(), localizations, params, admin, public }
+    CapSpec { name: name.into(), description: description.into(), localizations, params, admin, public, requires: vec![] }
 }
 
 pub struct CallContext {
@@ -136,7 +138,7 @@ pub struct ExternalComponent {
     metadata: Value,
     tx: mpsc::UnboundedSender<Value>,
     rx: tokio::sync::Mutex<mpsc::UnboundedReceiver<Value>>,
-    pending: Mutex<HashMap<String, oneshot::Sender<Value>>>,
+    pending: Mutex<HashMap<String, (oneshot::Sender<Value>, Principal)>>,
     last_seen: Mutex<Instant>,
     polling: AtomicUsize,
     closed: watch::Sender<bool>,
@@ -166,8 +168,10 @@ impl ExternalComponent {
                 params: c.get("params").filter(|p| p.is_object()).cloned().unwrap_or_else(empty_obj),
                 admin: c.get("admin").and_then(Value::as_bool).unwrap_or(false),
                 public: false,
+                requires: c.get("requires").map(|v|serde_json::from_value(v.clone())).transpose().map_err(|_|DeltaError::bad_request("Invalid capability feature requirements"))?.unwrap_or_default(),
             });
         }
+        crate::components::dependencies::parse(&manifest["metadata"]["ui"])?;
         let (tx, rx) = mpsc::unbounded_channel();
         let (closed, _) = watch::channel(false);
         Ok(Self {
@@ -217,9 +221,16 @@ impl ExternalComponent {
         self.touch();
         let slot = self.pending.lock().unwrap().remove(inv_id);
         match slot {
-            Some(tx) => tx.send(response).is_ok(),
+            Some((tx, _)) => tx.send(response).is_ok(),
             None => false,
         }
+    }
+
+    /// Only the authenticated component and its live invocation can borrow this identity.
+    /// The caller is retained by the kernel, never supplied by plugin JSON.
+    pub fn invocation_principal(&self, id: &str) -> Result<Principal> {
+        self.pending.lock().unwrap().get(id).map(|(_, p)| p.clone())
+            .ok_or_else(|| DeltaError::not_found("unknown or expired invocation"))
     }
 
     pub fn alive(&self) -> bool {
@@ -249,7 +260,7 @@ impl Component for ExternalComponent {
     async fn handle(&self, capability: &str, args: Value, ctx: &CallContext) -> Result<Value> {
         let inv_id = crate::util::random_hex(8);
         let (tx, rx) = oneshot::channel();
-        self.pending.lock().unwrap().insert(inv_id.clone(), tx);
+        self.pending.lock().unwrap().insert(inv_id.clone(), (tx, ctx.principal.clone()));
         let sent = self.tx.send(json!({
             "id": inv_id,
             "capability": capability,
@@ -278,7 +289,7 @@ impl Component for ExternalComponent {
 
     async fn stop(&self) {
         let _ = self.closed.send(true);
-        let slots: Vec<oneshot::Sender<Value>> = self.pending.lock().unwrap().drain().map(|(_, s)| s).collect();
+        let slots: Vec<oneshot::Sender<Value>> = self.pending.lock().unwrap().drain().map(|(_, (s, _))| s).collect();
         for s in slots {
             let _ = s.send(json!({
                 "ok": false,
@@ -447,7 +458,7 @@ impl Kernel {
                     c.name.clone(),
                     json!({
                         "name": c.name, "description": c.description, "localizations": c.localizations, "params": c.params,
-                        "admin": c.admin, "public": c.public, "component": e.comp.id(),
+                        "admin": c.admin, "public": c.public, "requires": c.requires, "component": e.comp.id(),
                         "node": self.node_id, "node_name": self.name,
                     }),
                 ));
@@ -523,6 +534,7 @@ impl Kernel {
             let code = if principal.kind != Kind::Anonymous { "forbidden" } else { "unauthorized" };
             return Err(DeltaError::new(code, format!("not allowed to call {capability}")));
         }
+        crate::components::dependencies::enforce(self, &comp.metadata()["ui"], &meta.requires)?;
         validate_args(&meta.params, &args)?;
         let ctx = CallContext { kernel: self.clone(), principal: principal.clone(), capability: capability.to_string() };
         comp.handle(capability, args, &ctx).await

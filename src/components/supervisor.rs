@@ -381,6 +381,9 @@ impl Component for Supervisor {
                 Ok(json!({"added": id}))
             }
             "supervisor.remove" => {
+                let blockers=crate::components::dependencies::removal_blockers(&ctx.kernel,&id);
+                if !blockers.is_empty() && args["force"]!=true {return Err(DeltaError::conflict(format!("Required by {}; explicitly replace the provider or confirm force",blockers.join(", "))))}
+                if args["force"]==true && !ctx.principal.is_admin(){return Err(DeltaError::forbidden("Force requires owner access"))}
                 self.with_item(&id, |m| m.wanted = false)?;
                 self.terminate(&id).await;
                 self.items.lock().unwrap().remove(&id);
@@ -394,6 +397,9 @@ impl Component for Supervisor {
                 self.with_item(&id, |m| m.status())
             }
             "supervisor.stop" => {
+                let blockers=crate::components::dependencies::removal_blockers(&ctx.kernel,&id);
+                if !blockers.is_empty() && args["force"]!=true {return Err(DeltaError::conflict(format!("Required by {}; explicitly replace the provider or confirm force",blockers.join(", "))))}
+                if args["force"]==true && !ctx.principal.is_admin(){return Err(DeltaError::forbidden("Force requires owner access"))}
                 self.with_item(&id, |m| m.wanted = false)?;
                 self.terminate(&id).await;
                 self.kernel()?.remove(&id).await;

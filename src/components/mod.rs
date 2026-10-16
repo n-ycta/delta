@@ -26,3 +26,6 @@ pub use identity::Identity;
 pub mod packages;
 #[cfg(feature = "native-processes")]
 pub use packages::Packages;
+
+pub mod dependencies;
+pub use dependencies::Dependencies;

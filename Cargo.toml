@@ -1,6 +1,6 @@
 [package]
 name = "delta-node"
-version = "0.4.2"
+version = "0.4.3"
 edition = "2021"
 description = "Delta: one API for nodes, components and capabilities"
 license = "Apache-2.0"
@@ -14,6 +14,7 @@ name = "delta"
 path = "src/main.rs"
 
 [dependencies]
+semver = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "process", "signal", "io-util", "net"] }
 axum = "0.7"
 serde = { version = "1", features = ["derive"] }

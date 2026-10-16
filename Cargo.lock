@@ -359,7 +359,7 @@ dependencies = [
 
 [[package]]
 name = "delta-node"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "async-trait",
  "axum",
@@ -372,6 +372,7 @@ dependencies = [
  "libc",
  "rand 0.8.8",
  "reqwest",
+ "semver",
  "serde",
  "serde_json",
  "sha2",
@@ -1355,6 +1356,12 @@ dependencies = [
  "subtle",
  "zeroize",
 ]
+
+[[package]]
+name = "semver"
+version = "1.0.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a7852d02fc848982e0c167ef163aaff9cd91dc640ba85e263cb1ce46fae51cd"
 
 [[package]]
 name = "serde"

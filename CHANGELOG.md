@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.3
+
+- Add invocation-bound external-component forwarding without service-credential elevation.
+- Add local declarative dependency diagnostics, feature gates and explicit provider bindings.
+- Add cycle-checked package plans, optional dependency selection and owner approval.
+- Protect required providers from accidental removal; retain explicit owner maintenance override.
+- Add delegation and optional-feature integration regressions. Ordered dependency installation is not an atomic group rollback.
+
 ## Release policy
 
 - Collect compatible fixes in **Unreleased**; do not publish a separate release for every small commit.

@@ -56,7 +56,7 @@ impl Plugin {
         let full = format!("{}.{}", self.id, name);
         let h: Handler = Arc::new(move |a: Value, c: Value| -> HandlerFuture { Box::pin(f(a, c)) });
         self.handlers.insert(full.clone(), h);
-        self.specs.push(CapSpec { name: full, description: description.into(), localizations: Value::Null, params, admin, public: false });
+        self.specs.push(CapSpec { name: full, description: description.into(), localizations: Value::Null, params, admin, public: false, requires: vec![] });
         self
     }
 
