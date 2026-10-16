@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.3
+## [v0.4.3]
 
 - Add invocation-bound external-component forwarding without service-credential elevation.
 - Add local declarative dependency diagnostics, feature gates and explicit provider bindings.

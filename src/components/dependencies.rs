@@ -31,7 +31,7 @@ fn bindings(k:&Kernel)->BTreeMap<String,String>{std::fs::read(k.config.home.join
 pub fn installed(k:&Kernel)->Vec<Value>{
  let mut rows=k.component_list();
  k.config.read(|c|{for managed in &c.components{
-  if rows.iter().any(|x|x["id"]==managed.id){continue}
+  if let Some(row)=rows.iter_mut().find(|x|x["id"]==managed.id){row["enabled"]=json!(managed.enabled);continue}
   // Only read manifests next to absolute managed entry points, never caller-supplied paths.
   let manifest=managed.command.iter().filter_map(|a|{let p=std::path::Path::new(a);if !p.is_absolute(){return None}let path=p.parent()?.join("manifest.json");std::fs::read(path).ok().and_then(|b|serde_json::from_slice::<Value>(&b).ok())}).find(|v|v["id"]==managed.id);
   if let Some(mut v)=manifest{v["registered"]=json!(false);v["enabled"]=json!(managed.enabled);rows.push(v)}

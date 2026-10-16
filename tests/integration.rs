@@ -349,3 +349,16 @@ async fn optional_dependencies_gate_only_the_declared_capability_and_recover_on_
     let admin=n.admin.clone();let pending=tokio::spawn(async move{admin.call("consumer.reports",json!({}),None,None).await});let inv=ext.next(Duration::from_secs(2)).await.unwrap();ext.resolve(inv["id"].as_str().unwrap(),json!({"ok":true,"result":true}));assert_eq!(pending.await.unwrap().unwrap(),true);
     n.close().await;
 }
+
+#[tokio::test]
+async fn replaceable_providers_require_explicit_binding_and_protect_enabled_consumers() {
+ let n=TestNode::new("provider-bindings").await;
+ for id in ["store_a","store_b"] {let manifest=json!({"id":id,"version":"1.0.0","metadata":{"ui":{"id":format!("dev.example.{id}")},"contracts":{"delta.storage":"1.0.0"}},"capabilities":[]});n.admin.request("POST","/v1/components",Some(&manifest),None).await.unwrap();}
+ let consumer=json!({"id":"reader","version":"1.0.0","metadata":{"ui":{"id":"dev.example.reader","dependencies":[{"id":"records","kind":"provider","contract":"delta.storage","version":"^1.0.0","required":true,"features":["history"]}]}},"capabilities":[]});n.admin.request("POST","/v1/components",Some(&consumer),None).await.unwrap();
+ let before=n.admin.call("dependencies.status",json!({"id":"reader"}),None,None).await.unwrap();assert_eq!(before["dependencies"][0]["state"],"unbound");assert_eq!(before["ready"],false);
+ let bound=n.admin.call("dependencies.bind",json!({"id":"dev.example.reader","dependency":"records","component":"store_b"}),None,None).await.unwrap();assert_eq!(bound["ready"],true);assert_eq!(bound["dependencies"][0]["component"],"store_b");
+ assert!(delta::components::dependencies::removal_blockers(&n.node.kernel,"store_a").is_empty());assert_eq!(delta::components::dependencies::removal_blockers(&n.node.kernel,"store_b"),vec!["dev.example.reader"]);
+ let again=n.admin.call("dependencies.status",json!({"id":"reader"}),None,None).await.unwrap();assert_eq!(again["dependencies"][0]["component"],"store_b");
+ let key=n.admin.call("tokens.create",json!({"name":"not-owner","scopes":["call:dependencies.*"]}),None,None).await.unwrap();assert_eq!(code_of(n.client(key["token"].as_str()).call("dependencies.bind",json!({"id":"reader","dependency":"records","component":"store_a"}),None,None).await).await,"forbidden");
+ n.close().await;
+}
