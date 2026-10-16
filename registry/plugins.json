@@ -253,16 +253,16 @@
       "id": "dev.delta.web",
       "component": "web",
       "repository": "https://github.com/n-ycta/delta-web",
-      "version": "0.6.0",
-      "asset": "https://github.com/n-ycta/delta-web/releases/download/v0.6.0/delta-web.tar.gz",
-      "sha256": "e0e1ba08677a42e56a04530d67d53082b7f1beb6dce95b9d8d33a143309d5331",
+      "version": "0.6.1",
+      "asset": "https://github.com/n-ycta/delta-web/releases/download/v0.6.1/delta-web.tar.gz",
+      "sha256": "2c71a7eef1bd75085d2f692bb38d6799e5fc0f284bc31ff92b350524e6761bf2",
       "scopes": [
         "admin"
       ],
       "manifest": {
         "id": "dev.delta.web",
         "name": "Delta Web",
-        "version": "0.6.0",
+        "version": "0.6.1",
         "contract": "^1.4.0",
         "description": "A modular control panel for your nodes, data and automation.",
         "publisher": "Delta",
@@ -2311,19 +2311,19 @@
       "id": "dev.delta.leads",
       "component": "leads",
       "repository": "https://github.com/n-ycta/delta-leads",
-      "version": "0.1.1",
-      "asset": "https://github.com/n-ycta/delta-leads/releases/download/v0.1.1/delta-leads.tar.gz",
-      "sha256": "bbbf95bffd070e9197d84526f06b047ce785a06637d46afc02ba52157dfd7785",
+      "version": "0.1.2",
+      "asset": "https://github.com/n-ycta/delta-leads/releases/download/v0.1.2/delta-leads.tar.gz",
+      "sha256": "3422c3771e57b4d5f2e1a130e4074ce6ae834ade072734a359da6660428b8031",
       "scopes": [
         "register:leads"
       ],
       "manifest": {
         "id": "dev.delta.leads",
         "name": "Delta Leads",
-        "version": "0.1.1",
+        "version": "0.1.2",
         "contract": "^1.5.0",
         "publisher": "n-ycta",
-        "description": "Personal RU/EN lead discovery: Reddit RSS/JSON/OAuth, optional X/Threads APIs, precise buyer rules, AI verdicts and Telegram + web notifications. Generic declarative views require Delta Web 0.6.0+.",
+        "description": "Personal RU/EN lead discovery: Reddit RSS/JSON/OAuth, optional X/Threads APIs, precise buyer rules, AI verdicts and Telegram + web notifications. Generic declarative views require Delta Web 0.6.1+.",
         "icon": "radar",
         "category": "productivity",
         "homepage": "https://github.com/n-ycta/delta-leads",
@@ -2353,6 +2353,62 @@
             "reason": "Read private lead content, manage source credentials and trigger scans."
           }
         ],
+        "settingsProfiles": {
+          "selectionKey": "activeProfiles",
+          "protectedKeys": [
+            "profile"
+          ],
+          "items": [
+            {
+              "id": "automation",
+              "label": "AI automation",
+              "values": {
+                "services": "automation\nautomate\nworkflow\nintegration\nAI agent\nавтоматизац\nинтеграц\nнейросет",
+                "queries": "\"looking for\" (automation OR workflow OR \"AI agent\")\n\"нужна автоматизация\"\n\"ищу\" (автоматизация OR интеграция)",
+                "profile": "Find buyers seeking paid business automation, AI agents, CRM integrations, lead routing and workflow implementation. Exclude people selling these services.",
+                "buyerTerms": "looking for a developer\nlooking for developer\nlooking for someone\nlooking for an expert\nlooking for a freelancer\nlooking for a programmer\nlooking to hire\nneed someone\nneed a developer\nneed a programmer\nneed a bot\nneed a website\nneed help building\nneed help with automation\nwant to hire\nseeking a developer\nseeking developer\n[hiring]\n[hire]\nhiring a\npaid task\npaid project\nbudget\nищу разработчика\nищу программиста\nищу исполнителя\nнужен разработчик\nнужен программист\nнужен бот\nнужен сайт\nнужен скрипт\nнужна автоматизация\nнужно сделать\nнужно разработать\nкто может сделать\nзаказать сайт\nзаказать бота\nоплачу\nесть бюджет\nготов заплатить",
+                "sellerTerms": "looking for work\nlooking for projects\nseeking work\nseeking clients\nlooking for clients\navailable for freelance\nищу работу\nищу подработку\nищу проекты\nищу проект\nпоиск заказов\n[for hire]\n[forhire]\navailable for hire\nopen for work\noffering my services\ni offer\nmy portfolio\nhire me\ni build websites\ni build bots\nwe build websites\nour agency\nнаши услуги\nпредлагаю услуги\nпредлагаю свои услуги\nразрабатываю сайты\nсоздаю сайты\nпишу ботов\nищу заказы\nищу клиентов\nмое портфолио\nмоё портфолио\nвозьму заказ",
+                "excludedTerms": "looking for advice\nneed advice\nany advice\nhow do i\nhow can i\nwhat tools\nany recommendations\nпосоветуйте\nкак сделать\nкак создать\nкакой сервис\nнужен совет\nfull-time\nfull time\ntutorial\nstep-by-step guide\nfree course\ni built a\ni made a\nshowcase\nищем в штат\nfull-time position\nfull time position\njob opening\nучебный проект\nобучающий курс\nделюсь своим проектом"
+              }
+            },
+            {
+              "id": "web",
+              "label": "Websites & landing pages",
+              "values": {
+                "services": "website\nlanding page\nweb app\nсайт\nлендинг\nвеб-приложен",
+                "queries": "\"[Hiring]\" (website OR \"landing page\")\n\"нужен сайт\"\n\"заказать лендинг\"",
+                "profile": "Find buyers seeking paid websites, landing pages, web applications and redesigns. Exclude web developers advertising services, portfolio posts and full-time vacancies.",
+                "buyerTerms": "looking for a developer\nlooking for developer\nlooking for someone\nlooking for an expert\nlooking for a freelancer\nlooking for a programmer\nlooking to hire\nneed someone\nneed a developer\nneed a programmer\nneed a bot\nneed a website\nneed help building\nneed help with automation\nwant to hire\nseeking a developer\nseeking developer\n[hiring]\n[hire]\nhiring a\npaid task\npaid project\nbudget\nищу разработчика\nищу программиста\nищу исполнителя\nнужен разработчик\nнужен программист\nнужен бот\nнужен сайт\nнужен скрипт\nнужна автоматизация\nнужно сделать\nнужно разработать\nкто может сделать\nзаказать сайт\nзаказать бота\nоплачу\nесть бюджет\nготов заплатить",
+                "sellerTerms": "looking for work\nlooking for projects\nseeking work\nseeking clients\nlooking for clients\navailable for freelance\nищу работу\nищу подработку\nищу проекты\nищу проект\nпоиск заказов\n[for hire]\n[forhire]\navailable for hire\nopen for work\noffering my services\ni offer\nmy portfolio\nhire me\ni build websites\ni build bots\nwe build websites\nour agency\nнаши услуги\nпредлагаю услуги\nпредлагаю свои услуги\nразрабатываю сайты\nсоздаю сайты\nпишу ботов\nищу заказы\nищу клиентов\nмое портфолио\nмоё портфолио\nвозьму заказ",
+                "excludedTerms": "looking for advice\nneed advice\nany advice\nhow do i\nhow can i\nwhat tools\nany recommendations\nпосоветуйте\nкак сделать\nкак создать\nкакой сервис\nнужен совет\nfull-time\nfull time\ntutorial\nstep-by-step guide\nfree course\ni built a\ni made a\nshowcase\nищем в штат\nfull-time position\nfull time position\njob opening\nучебный проект\nобучающий курс\nделюсь своим проектом"
+              }
+            },
+            {
+              "id": "bots",
+              "label": "Bots & scripts",
+              "values": {
+                "services": "bot\nscript\nscraper\ntelegram\nбот\nскрипт\nпарсер",
+                "queries": "\"[Hiring]\" (bot OR script OR scraper)\n\"нужен бот\"\n\"нужен скрипт\"",
+                "profile": "Find buyers commissioning paid bots, Telegram integrations, scripts, data processing and lawful scraping tools. Exclude bot vendors, tutorials, spam and requests to bypass access restrictions.",
+                "buyerTerms": "looking for a developer\nlooking for developer\nlooking for someone\nlooking for an expert\nlooking for a freelancer\nlooking for a programmer\nlooking to hire\nneed someone\nneed a developer\nneed a programmer\nneed a bot\nneed a website\nneed help building\nneed help with automation\nwant to hire\nseeking a developer\nseeking developer\n[hiring]\n[hire]\nhiring a\npaid task\npaid project\nbudget\nищу разработчика\nищу программиста\nищу исполнителя\nнужен разработчик\nнужен программист\nнужен бот\nнужен сайт\nнужен скрипт\nнужна автоматизация\nнужно сделать\nнужно разработать\nкто может сделать\nзаказать сайт\nзаказать бота\nоплачу\nесть бюджет\nготов заплатить",
+                "sellerTerms": "looking for work\nlooking for projects\nseeking work\nseeking clients\nlooking for clients\navailable for freelance\nищу работу\nищу подработку\nищу проекты\nищу проект\nпоиск заказов\n[for hire]\n[forhire]\navailable for hire\nopen for work\noffering my services\ni offer\nmy portfolio\nhire me\ni build websites\ni build bots\nwe build websites\nour agency\nнаши услуги\nпредлагаю услуги\nпредлагаю свои услуги\nразрабатываю сайты\nсоздаю сайты\nпишу ботов\nищу заказы\nищу клиентов\nмое портфолио\nмоё портфолио\nвозьму заказ",
+                "excludedTerms": "looking for advice\nneed advice\nany advice\nhow do i\nhow can i\nwhat tools\nany recommendations\nпосоветуйте\nкак сделать\nкак создать\nкакой сервис\nнужен совет\nfull-time\nfull time\ntutorial\nstep-by-step guide\nfree course\ni built a\ni made a\nshowcase\nищем в штат\nfull-time position\nfull time position\njob opening\nучебный проект\nобучающий курс\nделюсь своим проектом"
+              }
+            },
+            {
+              "id": "art",
+              "label": "Illustration & design",
+              "values": {
+                "services": "illustration\nillustrator\ncommission\ncharacter design\nconcept art\nиллюстрац\nхудожник\nдизайн персонаж",
+                "queries": "\"[Hiring]\" (illustrator OR artist)\n\"ищу художника\"\n\"заказать иллюстрацию\"",
+                "profile": "Find paying clients commissioning illustrations, character design, concept art or commercial artwork. Exclude artists selling commissions, portfolio showcases, unpaid requests and contests.",
+                "buyerTerms": "looking for a developer\nlooking for developer\nlooking for someone\nlooking for an expert\nlooking for a freelancer\nlooking for a programmer\nlooking to hire\nneed someone\nneed a developer\nneed a programmer\nneed a bot\nneed a website\nneed help building\nneed help with automation\nwant to hire\nseeking a developer\nseeking developer\n[hiring]\n[hire]\nhiring a\npaid task\npaid project\nbudget\nищу разработчика\nищу программиста\nищу исполнителя\nнужен разработчик\nнужен программист\nнужен бот\nнужен сайт\nнужен скрипт\nнужна автоматизация\nнужно сделать\nнужно разработать\nкто может сделать\nзаказать сайт\nзаказать бота\nоплачу\nесть бюджет\nготов заплатить",
+                "sellerTerms": "looking for work\nlooking for projects\nseeking work\nseeking clients\nlooking for clients\navailable for freelance\nищу работу\nищу подработку\nищу проекты\nищу проект\nпоиск заказов\n[for hire]\n[forhire]\navailable for hire\nopen for work\noffering my services\ni offer\nmy portfolio\nhire me\ni build websites\ni build bots\nwe build websites\nour agency\nнаши услуги\nпредлагаю услуги\nпредлагаю свои услуги\nразрабатываю сайты\nсоздаю сайты\nпишу ботов\nищу заказы\nищу клиентов\nмое портфолио\nмоё портфолио\nвозьму заказ",
+                "excludedTerms": "looking for advice\nneed advice\nany advice\nhow do i\nhow can i\nwhat tools\nany recommendations\nпосоветуйте\nкак сделать\nкак создать\nкакой сервис\nнужен совет\nfull-time\nfull time\ntutorial\nstep-by-step guide\nfree course\ni built a\ni made a\nshowcase\nищем в штат\nfull-time position\nfull time position\njob opening\nучебный проект\nобучающий курс\nделюсь своим проектом"
+              }
+            }
+          ]
+        },
         "settings": [
           {
             "group": "Pipeline",
@@ -2529,7 +2585,7 @@
             "key": "redditUserAgent",
             "type": "string",
             "label": "Reddit descriptive user agent",
-            "default": "delta-leads/0.1.0 (personal lead research; configure contact)",
+            "default": "delta-leads/0.1.2 (personal lead research; configure contact)",
             "help": "Set a descriptive user agent identifying your app and contact. Reddit can require approved API access."
           },
           {
@@ -2678,22 +2734,121 @@
             "min": 1,
             "max": 50,
             "step": 1
+          },
+          {
+            "group": "Reddit",
+            "key": "requestDelaySec",
+            "type": "number",
+            "label": "Pause between source requests",
+            "default": 6,
+            "min": 2,
+            "max": 120,
+            "step": 1,
+            "unit": "s"
+          },
+          {
+            "group": "AI verdict",
+            "key": "aiMode",
+            "type": "select",
+            "label": "Processing mode",
+            "default": "sequential",
+            "options": [
+              {
+                "value": "sequential",
+                "label": "Sequential"
+              },
+              {
+                "value": "parallel",
+                "label": "Parallel requests"
+              },
+              {
+                "value": "batch",
+                "label": "JSON batches"
+              }
+            ]
+          },
+          {
+            "group": "AI verdict",
+            "key": "aiConcurrency",
+            "type": "number",
+            "label": "Parallel requests",
+            "default": 3,
+            "min": 1,
+            "max": 8,
+            "step": 1
+          },
+          {
+            "group": "AI verdict",
+            "key": "aiBatchSize",
+            "type": "number",
+            "label": "Posts per JSON batch",
+            "default": 5,
+            "min": 1,
+            "max": 10,
+            "step": 1
+          },
+          {
+            "group": "AI verdict",
+            "key": "aiTimeoutSec",
+            "type": "number",
+            "label": "AI request timeout",
+            "default": 25,
+            "min": 5,
+            "max": 120,
+            "step": 1,
+            "unit": "s"
+          },
+          {
+            "group": "AI verdict",
+            "key": "aiJsonMode",
+            "type": "boolean",
+            "label": "Send JSON response_format (disable if unsupported)",
+            "default": true
+          },
+          {
+            "group": "Pipeline",
+            "key": "activeProfiles",
+            "type": "multiselect",
+            "label": "Selected profiles",
+            "default": [
+              "automation",
+              "web",
+              "bots"
+            ],
+            "options": [
+              {
+                "value": "automation",
+                "label": "AI automation"
+              },
+              {
+                "value": "web",
+                "label": "Websites & landing pages"
+              },
+              {
+                "value": "bots",
+                "label": "Bots & scripts"
+              },
+              {
+                "value": "art",
+                "label": "Illustration & design"
+              }
+            ]
           }
         ],
         "actions": [
           {
             "id": "scan_now",
-            "label": "Check now",
+            "label": "Scan",
             "description": "Start one background scan; inspect Sources for progress and errors."
           },
           {
             "id": "test_telegram",
-            "label": "Test Telegram",
+            "label": "Send",
             "description": "Send a single test message to the configured recipient."
           },
           {
             "id": "preview",
-            "label": "Test matching rules",
+            "label": "Preview",
             "inputs": [
               {
                 "key": "title",
@@ -2712,7 +2867,7 @@
           },
           {
             "id": "feedback",
-            "label": "Review a lead",
+            "label": "Review",
             "inputs": [
               {
                 "key": "id",
@@ -2749,9 +2904,78 @@
                 ]
               }
             ]
+          },
+          {
+            "id": "validate_ai",
+            "label": "AI",
+            "settingsAction": true,
+            "description": "Validate endpoint, key, model and actual structured output using current form values without saving."
+          },
+          {
+            "id": "validate_telegram",
+            "label": "Telegram",
+            "settingsAction": true,
+            "description": "Validate bot identity and recipient chat access without sending a message."
+          },
+          {
+            "id": "diagnose",
+            "label": "Diagnose",
+            "description": "Read-only sample from the last 24h (first query/page per source). No notifications. Results appear in Diagnostics.",
+            "inputs": [
+              {
+                "key": "ai",
+                "label": "Include AI (one candidate per source)",
+                "type": "boolean",
+                "default": false
+              }
+            ]
           }
         ],
         "views": [
+          {
+            "id": "diagnostics",
+            "label": "Diagnostics · last 24h sample",
+            "capability": "leads.diagnostics",
+            "refreshSec": 5,
+            "columns": [
+              {
+                "key": "source",
+                "label": "Source",
+                "type": "text"
+              },
+              {
+                "key": "checkedAt",
+                "label": "Started",
+                "type": "datetime"
+              },
+              {
+                "key": "count",
+                "label": "Recent posts",
+                "type": "number"
+              },
+              {
+                "key": "candidates",
+                "label": "Rule matches",
+                "type": "number"
+              },
+              {
+                "key": "verdict",
+                "label": "AI verdict",
+                "type": "text"
+              },
+              {
+                "key": "reason",
+                "label": "Reason",
+                "type": "text",
+                "width": 320
+              },
+              {
+                "key": "error",
+                "label": "Error",
+                "type": "text"
+              }
+            ]
+          },
           {
             "id": "posts",
             "label": "Posts & verdicts",
@@ -3014,7 +3238,27 @@
         ],
         "localizations": {
           "ru": {
-            "description": "Личный поиск заказчиков RU/EN: Reddit RSS/JSON/OAuth, X и Threads через API, точные правила, вердикт нейросети и уведомления в Telegram и Web. Общие таблицы требуют Delta Web 0.6.0+.",
+            "description": "Личный поиск заказчиков RU/EN: Reddit RSS/JSON/OAuth, X и Threads через API, точные правила, вердикт нейросети и уведомления в Telegram и Web. Общие таблицы требуют Delta Web 0.6.1+.",
+            "settingsProfiles": {
+              "items": [
+                {
+                  "id": "automation",
+                  "label": "AI-автоматизация"
+                },
+                {
+                  "id": "web",
+                  "label": "Сайты и лендинги"
+                },
+                {
+                  "id": "bots",
+                  "label": "Боты и скрипты"
+                },
+                {
+                  "id": "art",
+                  "label": "Иллюстрация и дизайн"
+                }
+              ]
+            },
             "settings": [
               {
                 "key": "enabled",
@@ -3241,22 +3485,91 @@
                 "key": "maxTelegramPerScan",
                 "label": "Максимум отправок Telegram за проверку",
                 "group": "Уведомления"
+              },
+              {
+                "key": "requestDelaySec",
+                "label": "Пауза между запросами источников",
+                "group": "Reddit",
+                "unit": "с"
+              },
+              {
+                "key": "aiMode",
+                "label": "Режим обработки",
+                "group": "Вердикт нейросети",
+                "options": [
+                  {
+                    "value": "sequential",
+                    "label": "Последовательно"
+                  },
+                  {
+                    "value": "parallel",
+                    "label": "Параллельные запросы"
+                  },
+                  {
+                    "value": "batch",
+                    "label": "JSON-пакеты"
+                  }
+                ]
+              },
+              {
+                "key": "aiConcurrency",
+                "label": "Параллельных запросов",
+                "group": "Вердикт нейросети"
+              },
+              {
+                "key": "aiBatchSize",
+                "label": "Постов в JSON-пакете",
+                "group": "Вердикт нейросети"
+              },
+              {
+                "key": "aiTimeoutSec",
+                "label": "Таймаут запроса AI",
+                "group": "Вердикт нейросети",
+                "unit": "с"
+              },
+              {
+                "key": "aiJsonMode",
+                "label": "Параметр JSON response_format — отключите, если провайдер не поддерживает",
+                "group": "Вердикт нейросети"
+              },
+              {
+                "key": "activeProfiles",
+                "label": "Выбранные профили",
+                "group": "Конвейер",
+                "options": [
+                  {
+                    "value": "automation",
+                    "label": "AI-автоматизация"
+                  },
+                  {
+                    "value": "web",
+                    "label": "Сайты и лендинги"
+                  },
+                  {
+                    "value": "bots",
+                    "label": "Боты и скрипты"
+                  },
+                  {
+                    "value": "art",
+                    "label": "Иллюстрация и дизайн"
+                  }
+                ]
               }
             ],
             "actions": [
               {
                 "id": "scan_now",
-                "label": "Проверить сейчас",
+                "label": "Проверить",
                 "description": "Запустить фоновую проверку. Ход работы и ошибки видны в таблице источников."
               },
               {
                 "id": "test_telegram",
-                "label": "Тест Telegram",
+                "label": "Отправить",
                 "description": "Отправить одно тестовое сообщение указанному получателю."
               },
               {
                 "id": "preview",
-                "label": "Проверить правила на тексте",
+                "label": "Правила",
                 "inputs": [
                   {
                     "key": "title",
@@ -3270,7 +3583,7 @@
               },
               {
                 "id": "feedback",
-                "label": "Оценить лид",
+                "label": "Оценить",
                 "inputs": [
                   {
                     "key": "id",
@@ -3303,9 +3616,64 @@
                     ]
                   }
                 ]
+              },
+              {
+                "id": "validate_ai",
+                "label": "AI",
+                "description": "Проверить endpoint, ключ, модель и JSON-ответ на тестовом посте. Используются поля формы без сохранения."
+              },
+              {
+                "id": "validate_telegram",
+                "label": "Telegram",
+                "description": "Проверить бота и доступ к чату без отправки сообщения."
+              },
+              {
+                "id": "diagnose",
+                "label": "Диагностика",
+                "description": "Выборка за сутки: первый запрос и страница каждого источника, без уведомлений. Результаты — в диагностике.",
+                "inputs": [
+                  {
+                    "key": "ai",
+                    "label": "Проверить AI — один кандидат на источник"
+                  }
+                ]
               }
             ],
             "views": [
+              {
+                "id": "diagnostics",
+                "label": "Диагностика · выборка за сутки",
+                "columns": [
+                  {
+                    "key": "source",
+                    "label": "Источник"
+                  },
+                  {
+                    "key": "checkedAt",
+                    "label": "Проверен"
+                  },
+                  {
+                    "key": "count",
+                    "label": "Получено"
+                  },
+                  {
+                    "key": "candidates",
+                    "label": "Совпадений"
+                  },
+                  {
+                    "key": "verdict",
+                    "label": "Вердикт"
+                  },
+                  {
+                    "key": "reason",
+                    "label": "Причина"
+                  },
+                  {
+                    "key": "error",
+                    "label": "Ошибка"
+                  }
+                ]
+              },
               {
                 "id": "posts",
                 "label": "Посты и вердикты",
