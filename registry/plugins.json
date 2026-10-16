@@ -4134,16 +4134,16 @@
       "id": "dev.delta.mcp",
       "component": "mcp",
       "repository": "https://github.com/n-ycta/delta-mcp",
-      "version": "0.1.1",
-      "asset": "https://github.com/n-ycta/delta-mcp/releases/download/v0.1.1/delta-mcp.tar.gz",
-      "sha256": "33698619419156278825841ae54980a38a8105ba86ca3dbaa49ab2f2dbd5b6bc",
+      "version": "0.1.2",
+      "asset": "https://github.com/n-ycta/delta-mcp/releases/download/v0.1.2/delta-mcp.tar.gz",
+      "sha256": "51b7e4921fd502a473898a476f7bac6be7ba750f2abc40e72eb13481e1800d5d",
       "scopes": [
         "admin"
       ],
       "manifest": {
         "id": "dev.delta.mcp",
         "name": "Delta Mcp",
-        "version": "0.1.1",
+        "version": "0.1.2",
         "contract": "^1.5.0",
         "description": "Headless mcp service; no Web or graphical host required.",
         "publisher": "Delta",
