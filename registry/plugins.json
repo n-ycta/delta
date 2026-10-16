@@ -253,136 +253,481 @@
       "id": "dev.delta.web",
       "component": "web",
       "repository": "https://github.com/n-ycta/delta-web",
-      "version": "0.6.7",
-      "asset": "https://github.com/n-ycta/delta-web/releases/download/v0.6.7/delta-web.tar.gz",
-      "sha256": "e235a0bb8f0501fc65804e421a91aa83c69a5ef7396468f53e15de277a541937",
+      "version": "0.6.8",
+      "asset": "https://github.com/n-ycta/delta-web/releases/download/v0.6.8/delta-web.tar.gz",
+      "sha256": "bbb4a4dda1e08a7d6cbb2d820cbcafe5a918e1c52c1c6dc10f27ad400756a9d0",
       "scopes": [
         "admin"
       ],
       "manifest": {
-        "id": "dev.delta.web",
-        "name": "Delta Web",
-        "version": "0.6.7",
-        "contract": "^1.4.0",
-        "description": "Browser host for Delta UI with optional headless service integrations.",
-        "publisher": "Delta",
-        "icon": "layout-dashboard",
-        "category": "system",
-        "runtime": {
-          "targets": [
-            "vps",
-            "desktop",
-            "container"
-          ],
-          "minAgent": "0.4.3"
-        },
-        "capabilities": [
-          "actions"
-        ],
-        "metrics": [],
-        "repository": "https://github.com/n-ycta/delta-web",
-        "defaultLocale": "en",
-        "screenshots": [
-          {
-            "url": "https://raw.githubusercontent.com/n-ycta/delta/main/docs/images/overview.png",
-            "alt": "Delta console overview"
-          },
-          {
-            "url": "https://raw.githubusercontent.com/n-ycta/delta/main/docs/images/metrics.png",
-            "alt": "Typing metric dashboard"
-          },
-          {
-            "url": "https://raw.githubusercontent.com/n-ycta/delta/main/docs/images/mcp.png",
-            "alt": "MCP gateway configuration"
-          }
-        ],
-        "localizations": {
-          "en": {
+        "id": "web",
+        "description": "Delta web console bridge",
+        "metadata": {
+          "ui": {
+            "id": "dev.delta.web",
             "name": "Delta Web",
-            "description": "A modular control panel for your nodes, data and automation.",
+            "version": "0.6.8",
+            "contract": "^1.4.0",
+            "description": "Browser host for Delta UI with optional headless service integrations.",
             "publisher": "Delta",
             "icon": "layout-dashboard",
             "category": "system",
+            "runtime": {
+              "targets": [
+                "vps",
+                "desktop",
+                "container"
+              ],
+              "minAgent": "0.4.3"
+            },
+            "capabilities": [
+              "actions"
+            ],
             "metrics": [],
+            "repository": "https://github.com/n-ycta/delta-web",
+            "defaultLocale": "en",
+            "screenshots": [
+              {
+                "url": "https://raw.githubusercontent.com/n-ycta/delta/main/docs/images/overview.png",
+                "alt": "Delta console overview"
+              },
+              {
+                "url": "https://raw.githubusercontent.com/n-ycta/delta/main/docs/images/metrics.png",
+                "alt": "Typing metric dashboard"
+              },
+              {
+                "url": "https://raw.githubusercontent.com/n-ycta/delta/main/docs/images/mcp.png",
+                "alt": "MCP gateway configuration"
+              }
+            ],
+            "localizations": {
+              "en": {
+                "name": "Delta Web",
+                "description": "A modular control panel for your nodes, data and automation.",
+                "publisher": "Delta",
+                "icon": "layout-dashboard",
+                "category": "system",
+                "metrics": [],
+                "permissions": [
+                  {
+                    "scope": "admin",
+                    "reason": "Required runtime authority. This is executable plugin code, not a sandbox.",
+                    "optional": false
+                  }
+                ]
+              },
+              "ru": {
+                "name": "Delta Web",
+                "description": "Веб-панель управления Delta",
+                "publisher": "Delta",
+                "icon": "layout-dashboard",
+                "category": "system",
+                "metrics": [],
+                "permissions": [
+                  {
+                    "scope": "admin",
+                    "reason": "Необходимые права процесса. Плагин исполняет код на узле без песочницы.",
+                    "optional": false
+                  }
+                ]
+              }
+            },
             "permissions": [
               {
                 "scope": "admin",
                 "reason": "Required runtime authority. This is executable plugin code, not a sandbox.",
                 "optional": false
               }
-            ]
-          },
-          "ru": {
-            "name": "Delta Web",
-            "description": "Веб-панель управления Delta",
-            "publisher": "Delta",
-            "icon": "layout-dashboard",
-            "category": "system",
-            "metrics": [],
-            "permissions": [
+            ],
+            "endpoints": {
+              "status": "web.status"
+            },
+            "dependencies": [
               {
-                "scope": "admin",
-                "reason": "Необходимые права процесса. Плагин исполняет код на узле без песочницы.",
-                "optional": false
+                "id": "core",
+                "kind": "core",
+                "version": ">=0.4.3, <0.5.0",
+                "required": true
+              },
+              {
+                "id": "dev.delta.mcp",
+                "kind": "plugin",
+                "version": ">=0.1.0, <0.2.0",
+                "required": false,
+                "features": [
+                  "mcp"
+                ]
+              },
+              {
+                "id": "dev.delta.updater",
+                "kind": "plugin",
+                "version": ">=0.1.0, <0.2.0",
+                "required": false,
+                "features": [
+                  "updates"
+                ]
+              },
+              {
+                "id": "dev.delta.provision",
+                "kind": "plugin",
+                "version": ">=0.1.0, <0.2.0",
+                "required": false,
+                "features": [
+                  "ssh"
+                ]
+              },
+              {
+                "id": "dev.delta.observability",
+                "kind": "plugin",
+                "version": ">=0.1.0, <0.2.0",
+                "required": false,
+                "features": [
+                  "metrics",
+                  "events"
+                ]
               }
             ]
           }
         },
-        "permissions": [
+        "capabilities": [
           {
-            "scope": "admin",
-            "reason": "Required runtime authority. This is executable plugin code, not a sandbox.",
-            "optional": false
-          }
-        ],
-        "endpoints": {
-          "status": "web.status"
-        },
-        "dependencies": [
-          {
-            "id": "core",
-            "kind": "core",
-            "version": ">=0.4.3, <0.5.0",
-            "required": true
+            "name": "info",
+            "params": {},
+            "admin": false
           },
           {
-            "id": "dev.delta.mcp",
-            "kind": "plugin",
-            "version": ">=0.1.0, <0.2.0",
-            "required": false,
-            "features": [
+            "name": "plugins_list",
+            "params": {},
+            "admin": false,
+            "description": "List plugins and their status",
+            "localizations": {
+              "ru": {
+                "description": "Список плагинов и их состояние"
+              }
+            }
+          },
+          {
+            "name": "plugins_logs",
+            "params": {},
+            "admin": true
+          },
+          {
+            "name": "plugins_enable",
+            "params": {},
+            "admin": true
+          },
+          {
+            "name": "plugins_install",
+            "params": {
+              "id": {
+                "type": "string",
+                "required": true
+              },
+              "request": {
+                "type": "object"
+              }
+            },
+            "admin": true
+          },
+          {
+            "name": "plugins_uninstall",
+            "params": {},
+            "admin": true
+          },
+          {
+            "name": "plugins_update",
+            "params": {},
+            "admin": true
+          },
+          {
+            "name": "plugins_settings",
+            "params": {
+              "id": {
+                "type": "string",
+                "required": true
+              },
+              "values": {
+                "type": "object",
+                "required": false
+              },
+              "nodeId": {
+                "type": "string"
+              }
+            },
+            "admin": true
+          },
+          {
+            "name": "plugins_permissions",
+            "params": {},
+            "admin": true
+          },
+          {
+            "name": "plugins_nodes",
+            "params": {},
+            "admin": true
+          },
+          {
+            "name": "plugins_action",
+            "params": {},
+            "admin": true
+          },
+          {
+            "name": "metrics_query",
+            "params": {
+              "query": {
+                "type": "object",
+                "required": true
+              }
+            },
+            "admin": false,
+            "description": "Query metric series",
+            "localizations": {
+              "ru": {
+                "description": "Запросить временные ряды метрик"
+              }
+            }
+          },
+          {
+            "name": "nodes_list",
+            "params": {},
+            "admin": false,
+            "description": "List connected nodes",
+            "localizations": {
+              "ru": {
+                "description": "Список подключённых узлов"
+              }
+            }
+          },
+          {
+            "name": "nodes_history",
+            "params": {},
+            "admin": false,
+            "requires": [
+              "metrics"
+            ]
+          },
+          {
+            "name": "nodes_uptime",
+            "params": {},
+            "admin": false,
+            "requires": [
+              "metrics"
+            ]
+          },
+          {
+            "name": "nodes_command",
+            "params": {
+              "id": {
+                "type": "string",
+                "required": true
+              },
+              "command": {
+                "type": "string",
+                "required": true
+              },
+              "args": {
+                "type": "object"
+              }
+            },
+            "admin": false
+          },
+          {
+            "name": "nodes_connection",
+            "params": {},
+            "admin": true
+          },
+          {
+            "name": "nodes_pair",
+            "params": {},
+            "admin": true
+          },
+          {
+            "name": "nodes_remove",
+            "params": {},
+            "admin": true
+          },
+          {
+            "name": "dashboards_list",
+            "params": {},
+            "admin": false
+          },
+          {
+            "name": "dashboards_save",
+            "params": {},
+            "admin": false
+          },
+          {
+            "name": "dashboards_delete",
+            "params": {},
+            "admin": false
+          },
+          {
+            "name": "events_list",
+            "params": {},
+            "admin": false,
+            "requires": [
+              "events"
+            ]
+          },
+          {
+            "name": "notifications_list",
+            "params": {},
+            "admin": false
+          },
+          {
+            "name": "notifications_mark",
+            "params": {},
+            "admin": false
+          },
+          {
+            "name": "access_list",
+            "params": {},
+            "admin": true
+          },
+          {
+            "name": "access_create",
+            "params": {},
+            "admin": true
+          },
+          {
+            "name": "access_revoke",
+            "params": {},
+            "admin": true
+          },
+          {
+            "name": "access_role",
+            "params": {},
+            "admin": true
+          },
+          {
+            "name": "audit_list",
+            "params": {},
+            "admin": true
+          },
+          {
+            "name": "mcp_list",
+            "params": {},
+            "admin": true,
+            "requires": [
               "mcp"
             ]
           },
           {
-            "id": "dev.delta.updater",
-            "kind": "plugin",
-            "version": ">=0.1.0, <0.2.0",
-            "required": false,
-            "features": [
+            "name": "mcp_catalog",
+            "params": {},
+            "admin": true,
+            "requires": [
+              "mcp"
+            ]
+          },
+          {
+            "name": "mcp_create",
+            "params": {
+              "profile": {
+                "type": "object",
+                "required": true
+              }
+            },
+            "admin": true,
+            "requires": [
+              "mcp"
+            ]
+          },
+          {
+            "name": "mcp_revoke",
+            "params": {
+              "id": {
+                "type": "string",
+                "required": true
+              }
+            },
+            "admin": true,
+            "requires": [
+              "mcp"
+            ]
+          },
+          {
+            "name": "status",
+            "params": {},
+            "description": "Web telemetry persistence status and observed record activity"
+          },
+          {
+            "name": "updates_status",
+            "params": {},
+            "admin": true,
+            "requires": [
               "updates"
             ]
           },
           {
-            "id": "dev.delta.provision",
-            "kind": "plugin",
-            "version": ">=0.1.0, <0.2.0",
-            "required": false,
-            "features": [
+            "name": "updates_check",
+            "params": {},
+            "admin": true,
+            "requires": [
+              "updates"
+            ]
+          },
+          {
+            "name": "updates_settings",
+            "params": {},
+            "admin": true,
+            "requires": [
+              "updates"
+            ]
+          },
+          {
+            "name": "updates_install",
+            "params": {},
+            "admin": true,
+            "requires": [
+              "updates"
+            ]
+          },
+          {
+            "name": "nodes_ssh_probe",
+            "params": {},
+            "admin": true,
+            "requires": [
               "ssh"
             ]
           },
           {
-            "id": "dev.delta.observability",
-            "kind": "plugin",
-            "version": ">=0.1.0, <0.2.0",
-            "required": false,
-            "features": [
-              "metrics",
-              "events"
+            "name": "nodes_ssh_install",
+            "params": {},
+            "admin": true,
+            "requires": [
+              "ssh"
             ]
+          },
+          {
+            "name": "nodes_ssh_status",
+            "params": {},
+            "admin": true,
+            "requires": [
+              "ssh"
+            ]
+          },
+          {
+            "name": "nodes_trust",
+            "params": {},
+            "admin": true
+          },
+          {
+            "name": "nodes_ssh_preflight",
+            "params": {},
+            "admin": true,
+            "requires": [
+              "ssh"
+            ]
+          },
+          {
+            "name": "plugins_query",
+            "description": "Read a declared plugin-owned data view with caller-scoped delegation",
+            "params": {},
+            "admin": false
           }
-        ]
+        ],
+        "version": "0.6.8"
       }
     },
     {
