@@ -7,11 +7,13 @@
 - Shared UI: TypeScript production build, 32 contract/registry/layout tests, six Host Bridge tests, EN/RU key and interpolation parity.
 - Web: production build, shared contract tests and 56 server/security tests. Independent service test fixtures are development-only immutable archives, not production imports.
 - MCP: 12 tests, including headless HTTP, legacy profile migration, canonical metric restrictions and coexistence with Type's trainer port.
-- Updater: 13 tests. Provision: eight tests. Observability: six tests.
+- Updater: 13 tests. Provision: eight tests. Observability: seven tests.
 
 Consult each release workflow for platform-specific results. A cross-compiled binary is not evidence of a completed physical-device installation test.
 
 ## Live isolated checks
+
+A fresh disposable profile installed the public Core 0.4.4 Linux binary and seven production plugin release archives from the official catalog. Type trainer on 7720 and MCP on 7730 ran together; direct and Web-proxied MCP initialize succeeded, and an under-scoped facade caller was denied.
 
 A disposable local Core ran all four extracted services with no Web process. MCP initialize/tool discovery, updater status, provisioning preflight and observed event persistence worked through their own APIs. Web compatibility aliases were then tested against the same services, with original-caller scope denial and private event visibility. Stopping Web did not stop the independent service processes.
 
