@@ -6,7 +6,7 @@
 - Bootstrap: five installer regressions, including a catalog component outside the old default preset, dependency approval and service installation failure handling.
 - Shared UI: TypeScript production build, 32 contract/registry/layout tests, six Host Bridge tests, EN/RU key and interpolation parity.
 - Web: production build, shared contract tests and 56 server/security tests. Independent service test fixtures are development-only immutable archives, not production imports.
-- MCP: 11 tests, including headless HTTP, legacy profile migration, canonical metric restrictions and coexistence with Type's trainer port.
+- MCP: 12 tests, including headless HTTP, legacy profile migration, canonical metric restrictions and coexistence with Type's trainer port.
 - Updater: 13 tests. Provision: eight tests. Observability: six tests.
 
 Consult each release workflow for platform-specific results. A cross-compiled binary is not evidence of a completed physical-device installation test.

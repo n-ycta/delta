@@ -17,7 +17,10 @@ jobs:
         shell: bash
         run: |
           export DELTA_HOME="$RUNNER_TEMP/Delta Test Home"
-          sh install.sh --no-service --plugins storage,web,typing > "$RUNNER_TEMP/delta-setup.log" 2>&1 || { grep -E 'Error|failed|mismatch' "$RUNNER_TEMP/delta-setup.log"; exit 1; }
+          mkdir -p "$DELTA_HOME/data/storage"
+          printf '{"engine":"file","databaseUrl":""}' > "$DELTA_HOME/data/storage/backend.json"
+          chmod 600 "$DELTA_HOME/data/storage/backend.json"
+          sh install.sh --no-service --with-optional --plugins storage,web,typing > "$RUNNER_TEMP/delta-setup.log" 2>&1 || { grep -E 'Error|failed|mismatch' "$RUNNER_TEMP/delta-setup.log"; exit 1; }
           echo "DELTA_HOME=$DELTA_HOME" >> "$GITHUB_ENV"
           echo "NODE_BIN=$DELTA_HOME/runtime/bin/node" >> "$GITHUB_ENV"
       - name: Install Windows node and plugins without a Rust build
@@ -25,7 +28,9 @@ jobs:
         shell: pwsh
         run: |
           $env:DELTA_HOME=Join-Path $env:RUNNER_TEMP 'Delta Test Home'
-          ./install.ps1 -NoService -Plugins 'storage,web,typing' *> "$env:RUNNER_TEMP/delta-setup.log"
+          New-Item -ItemType Directory -Force "$env:DELTA_HOME/data/storage" | Out-Null
+          '{"engine":"file","databaseUrl":""}' | Set-Content "$env:DELTA_HOME/data/storage/backend.json" -Encoding utf8
+          ./install.ps1 -NoService -WithOptional -Plugins 'storage,web,typing'  *> "$env:RUNNER_TEMP/delta-setup.log"
           "DELTA_HOME=$env:DELTA_HOME" >> $env:GITHUB_ENV
           "NODE_BIN=$env:DELTA_HOME/runtime/node.exe" >> $env:GITHUB_ENV
       - name: Verify live installed ecosystem
