@@ -10,6 +10,14 @@ Connect your desktop and VPS, collect only the information you choose, and manag
 
 > Early release. Back up your data before upgrades. This is a self-hosted system, not a hosted account or NAT relay.
 
+## Choose your interface
+
+- **Browser / VPS:** install Core with the independent [Delta Web](https://github.com/n-ycta/delta-web) plugin using the quick start below.
+- **Linux / Windows app:** [Delta Desktop](https://github.com/n-ycta/delta-desktop#install-the-latest-release) provides a one-command latest-release installer and embeds Core; Web is not required.
+- **Android phone:** [download the latest APK](https://github.com/n-ycta/delta-android/releases/latest/download/Delta-Android-arm64-x86_64.apk). Pair it with a reachable trusted desktop/VPS node for desktop-only plugin capabilities.
+
+All interfaces share [Delta UI](https://github.com/n-ycta/delta-ui); service features remain independent plugins. Pairing does not create a VPN or expose local ports.
+
 ## Quick start
 
 No Rust compiler, Git clone or manual API-token paste is required. The installer downloads a prebuilt node, a private Node.js runtime and verified plugin releases. Default: **node + storage + web**.
@@ -42,7 +50,7 @@ Invoke-WebRequest https://raw.githubusercontent.com/n-ycta/delta/main/install.ps
 
 Read the script before running it. Respect your organization's PowerShell execution policy; no policy bypass is required by the installer. Linux requires curl, tar (with xz support) and sha256sum. Windows uses built-in tar and PowerShell. Internet access to GitHub, nodejs.org and npm is required during setup.
 
-The console opens at **http://127.0.0.1:7710** with a one-use owner link. On a headless VPS the installer prints an SSH-tunnel command instead. The owner link expires after five minutes; run the installer again with `--open` (PowerShell: `-Open`) to issue a new one. It does not reinstall an already working node. To force a binary/runtime download, set `DELTA_FORCE_DOWNLOAD=1` before running the installer.
+The console opens at **http://127.0.0.1:7710** with a one-use setup link. Save and enroll a recovery key during the temporary setup session; a clean browser otherwise requires sign-in. Public owner registration is disabled. A valid remembered session can legitimately restore access. See [Web authentication](https://github.com/n-ycta/delta-web/blob/main/SECURITY.md). On a headless VPS the installer prints an SSH-tunnel command instead. The owner link expires after five minutes; run the installer again with `--open` (PowerShell: `-Open`) to issue a new one. It does not reinstall an already working node. To force a binary/runtime download, set `DELTA_FORCE_DOWNLOAD=1` before running the installer.
 
 Linux uses a systemd **user** service. Service installation failure is reported; a detached temporary process is available only with explicit `--no-service`. Windows installs a **current-user sign-in launcher**, not a privileged Windows service. A bare node does not expose a web UI until the web plugin is installed.
 
