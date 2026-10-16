@@ -4083,6 +4083,201 @@
           }
         }
       }
+    },
+    {
+      "id": "dev.delta.mcp",
+      "component": "mcp",
+      "repository": "https://github.com/n-ycta/delta-mcp",
+      "version": "0.1.1",
+      "asset": "https://github.com/n-ycta/delta-mcp/releases/download/v0.1.1/delta-mcp.tar.gz",
+      "sha256": "33698619419156278825841ae54980a38a8105ba86ca3dbaa49ab2f2dbd5b6bc",
+      "scopes": [
+        "admin"
+      ],
+      "manifest": {
+        "id": "dev.delta.mcp",
+        "name": "Delta Mcp",
+        "version": "0.1.1",
+        "contract": "^1.5.0",
+        "description": "Headless mcp service; no Web or graphical host required.",
+        "publisher": "Delta",
+        "icon": "plug",
+        "category": "system",
+        "runtime": {
+          "targets": [
+            "desktop",
+            "vps",
+            "container"
+          ]
+        },
+        "capabilities": [
+          "actions"
+        ],
+        "metrics": [],
+        "repository": "https://github.com/n-ycta/delta-mcp",
+        "permissions": [
+          {
+            "scope": "admin",
+            "reason": "Trusted executable service; OS sandboxing is not provided.",
+            "optional": false
+          }
+        ],
+        "dependencies": [
+          {
+            "kind": "core",
+            "version": ">=0.4.3, <0.5.0",
+            "required": true,
+            "id": "core"
+          }
+        ]
+      }
+    },
+    {
+      "id": "dev.delta.updater",
+      "component": "updater",
+      "repository": "https://github.com/n-ycta/delta-updater",
+      "version": "0.1.0",
+      "asset": "https://github.com/n-ycta/delta-updater/releases/download/v0.1.0/delta-updater.tar.gz",
+      "sha256": "c38ce10003411e5be89add371b1daefe86eceefbb699a52de7779d6418039c8b",
+      "scopes": [
+        "admin"
+      ],
+      "manifest": {
+        "id": "dev.delta.updater",
+        "name": "Delta Updater",
+        "version": "0.1.0",
+        "contract": "^1.5.0",
+        "description": "Headless updater service; no Web or graphical host required.",
+        "publisher": "Delta",
+        "icon": "download",
+        "category": "system",
+        "runtime": {
+          "targets": [
+            "desktop",
+            "vps",
+            "container"
+          ]
+        },
+        "capabilities": [
+          "actions"
+        ],
+        "metrics": [],
+        "repository": "https://github.com/n-ycta/delta-updater",
+        "permissions": [
+          {
+            "scope": "admin",
+            "reason": "Trusted executable service; OS sandboxing is not provided.",
+            "optional": false
+          }
+        ],
+        "dependencies": [
+          {
+            "kind": "core",
+            "version": ">=0.4.3, <0.5.0",
+            "required": true,
+            "id": "core"
+          }
+        ]
+      }
+    },
+    {
+      "id": "dev.delta.provision",
+      "component": "provision",
+      "repository": "https://github.com/n-ycta/delta-provision",
+      "version": "0.1.0",
+      "asset": "https://github.com/n-ycta/delta-provision/releases/download/v0.1.0/delta-provision.tar.gz",
+      "sha256": "1a61b256df022b7d4d85f70c1a9861ea39b5765c28c52aa0d93e78a1eecfd84c",
+      "scopes": [
+        "admin"
+      ],
+      "manifest": {
+        "id": "dev.delta.provision",
+        "name": "Delta Provision",
+        "version": "0.1.0",
+        "contract": "^1.5.0",
+        "description": "Headless provision service; no Web or graphical host required.",
+        "publisher": "Delta",
+        "icon": "server",
+        "category": "system",
+        "runtime": {
+          "targets": [
+            "desktop",
+            "vps",
+            "container"
+          ]
+        },
+        "capabilities": [
+          "actions"
+        ],
+        "metrics": [],
+        "repository": "https://github.com/n-ycta/delta-provision",
+        "permissions": [
+          {
+            "scope": "admin",
+            "reason": "Trusted executable service; OS sandboxing is not provided.",
+            "optional": false
+          }
+        ],
+        "dependencies": [
+          {
+            "kind": "core",
+            "version": ">=0.4.3, <0.5.0",
+            "required": true,
+            "id": "core"
+          }
+        ]
+      }
+    },
+    {
+      "id": "dev.delta.observability",
+      "component": "observability",
+      "repository": "https://github.com/n-ycta/delta-observability",
+      "version": "0.1.0",
+      "asset": "https://github.com/n-ycta/delta-observability/releases/download/v0.1.0/delta-observability.tar.gz",
+      "sha256": "1d209280de28ebcbd691add80e4562a6263556ef0759a2a759590244272aa7c8",
+      "scopes": [
+        "admin"
+      ],
+      "manifest": {
+        "id": "dev.delta.observability",
+        "name": "Delta Observability",
+        "version": "0.1.0",
+        "contract": "^1.5.0",
+        "description": "Headless observability service; no Web or graphical host required.",
+        "publisher": "Delta",
+        "icon": "activity",
+        "category": "system",
+        "runtime": {
+          "targets": [
+            "desktop",
+            "vps",
+            "container"
+          ]
+        },
+        "capabilities": [
+          "actions"
+        ],
+        "metrics": [],
+        "repository": "https://github.com/n-ycta/delta-observability",
+        "permissions": [
+          {
+            "scope": "admin",
+            "reason": "Trusted executable service; OS sandboxing is not provided.",
+            "optional": false
+          }
+        ],
+        "dependencies": [
+          {
+            "kind": "core",
+            "version": ">=0.4.3, <0.5.0",
+            "required": true,
+            "id": "core"
+          }
+        ],
+        "endpoints": {
+          "status": "observability.status"
+        }
+      }
     }
   ]
 }
