@@ -34,7 +34,7 @@ jobs:
           mkdir -p bundle
           cp target/${{ matrix.target }}/release/delta* bundle/
           rm -f bundle/*.d bundle/*.pdb
-          cp LICENSE NOTICE scripts/bootstrap.mjs scripts/upgrade.mjs bundle/
+          cp LICENSE NOTICE scripts/bootstrap.mjs scripts/upgrade.mjs scripts/recover-web.mjs bundle/
           tar -czf delta-${{ matrix.platform }}.tar.gz -C bundle .
       - uses: actions/upload-artifact@v4
         with:

@@ -1,0 +1,17 @@
+name: Verify same-node access recovery
+on:
+  push:
+    paths: ['scripts/recover-web.mjs', 'tests/recover-web.test.mjs', '.github/workflows/recovery.yml']
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  recovery:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - run: node --test tests/recover-web.test.mjs

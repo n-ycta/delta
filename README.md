@@ -131,6 +131,10 @@ If a plugin does not register within 60 seconds, package installation saves its 
 
 Run `node --test tests/installer.test.mjs` alongside `cargo test --locked` to check bootstrap port selection and stale installer reuse. Release binaries and the package index must be rebuilt/versioned together; editing source alone does not update the installed prebuilt runtime.
 
+### Recover access after a browser-owner session expires
+
+If no key was ever enrolled, do not reset or reinstall the node. Use the local-owner [access recovery guide](docs/recover-access.md) to issue a one-use link on the original node and register a saved key. Recovery preserves the existing node ID, plugins, settings and data.
+
 ### Autostart repair and browser sessions (v0.4.1)
 
 The default installer now enables or repairs the user service even if a temporary node is already online. On Linux, an owned temporary process is safely stopped before handing control to systemd. Service setup failures are no longer silently presented as a reboot-ready installation; `--no-service` is an explicit temporary/development mode only.
