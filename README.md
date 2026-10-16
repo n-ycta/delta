@@ -117,7 +117,7 @@ If a plugin does not register within 60 seconds, package installation saves its 
 
 Run `node --test tests/installer.test.mjs` alongside `cargo test --locked` to check bootstrap port selection and stale installer reuse. Release binaries and the package index must be rebuilt/versioned together; editing source alone does not update the installed prebuilt runtime.
 
-### Autostart repair and browser sessions (pending release)
+### Autostart repair and browser sessions (v0.4.1)
 
 The default installer now enables or repairs the user service even if a temporary node is already online. On Linux, an owned temporary process is safely stopped before handing control to systemd. Service setup failures are no longer silently presented as a reboot-ready installation; `--no-service` is an explicit temporary/development mode only.
 

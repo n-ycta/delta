@@ -9,9 +9,21 @@
 
 ## [Unreleased]
 
-- Persist signed-login tokens across core restarts, with a signed optional 30-day remembered-device session; preserve scoped access and key revocation. Enable/repair autostart on installer reruns, and fail explicitly rather than silently falling back to a non-autostart process.
+- No pending changes.
 
-- Improve release documentation and changelog-backed release publishing; no new runtime release is created for this maintenance change.
+## [v0.4.1]
+
+### Fixes
+- Preserve signed-login token hashes across core restarts, so valid browser sessions are not lost after a reboot.
+- Enable or repair the user service when rerunning the installer, even if a temporary node is already online.
+- Report service-installation failures instead of silently falling back to a process without autostart.
+
+### Improvements
+- Support an optional 30-day remembered-device session, with the requested lifetime bound to the signed challenge.
+- Preserve scoped permissions and revoke persisted sessions when their enrolled key is removed.
+
+### Upgrade notes
+- Update Delta Web to v0.5.1 for the remembered-device option. Old expired or memory-only sessions require one fresh sign-in.
 
 ## [v0.4.0]
 
