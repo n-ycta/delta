@@ -4324,6 +4324,371 @@
           "status": "observability.status"
         }
       }
+    },
+    {
+      "id": "dev.delta.youtube",
+      "component": "youtube",
+      "repository": "https://github.com/n-ycta/delta-media-sources",
+      "version": "0.2.1",
+      "asset": "https://github.com/n-ycta/delta-media-sources/releases/download/v0.2.1/delta-youtube.tar.gz",
+      "sha256": "efad335c6aafddf066b5c1555583dd25805e30488982ce6bfb6ffcc49ef4aa7f",
+      "scopes": [
+        "register:youtube",
+        "call:youtube.*"
+      ],
+      "manifest": {
+        "id": "dev.delta.youtube",
+        "name": "YouTube",
+        "version": "0.2.1",
+        "contract": "^1.4.0",
+        "description": "Connect YouTube to media plugins. No separate interface.",
+        "publisher": "Delta",
+        "icon": "youtube-logo",
+        "category": "media",
+        "runtime": {
+          "targets": [
+            "desktop",
+            "vps",
+            "container"
+          ],
+          "execution": "process",
+          "minAgent": "0.4.3"
+        },
+        "capabilities": [
+          "status.read",
+          "settings.read",
+          "actions"
+        ],
+        "metrics": [],
+        "settings": [
+          {
+            "key": "youtubeKey",
+            "type": "secret",
+            "label": "YouTube API key",
+            "default": ""
+          }
+        ],
+        "endpoints": {
+          "status": "youtube.status",
+          "settings": "youtube.settings"
+        },
+        "actions": [
+          {
+            "id": "search",
+            "label": "Search",
+            "inputs": [
+              {
+                "key": "query",
+                "label": "Query",
+                "type": "string",
+                "required": true
+              }
+            ],
+            "dangerous": false
+          },
+          {
+            "id": "resolve",
+            "label": "Resolve link",
+            "inputs": [
+              {
+                "key": "url",
+                "label": "URL",
+                "type": "string",
+                "required": true
+              }
+            ],
+            "dangerous": false
+          }
+        ],
+        "permissions": [
+          {
+            "scope": "register:youtube",
+            "reason": "Register and operate this provider.",
+            "optional": false
+          },
+          {
+            "scope": "call:youtube.*",
+            "reason": "Register and operate this provider.",
+            "optional": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "dev.delta.soundcloud",
+      "component": "soundcloud",
+      "repository": "https://github.com/n-ycta/delta-media-sources",
+      "version": "0.2.1",
+      "asset": "https://github.com/n-ycta/delta-media-sources/releases/download/v0.2.1/delta-soundcloud.tar.gz",
+      "sha256": "1a4856d3998f92df88e023f34e387dcbdc05eba193c2cd3b89ac870724e66516",
+      "scopes": [
+        "register:soundcloud",
+        "call:soundcloud.*"
+      ],
+      "manifest": {
+        "id": "dev.delta.soundcloud",
+        "name": "SoundCloud",
+        "version": "0.2.1",
+        "contract": "^1.4.0",
+        "description": "Connect SoundCloud to media plugins. No separate interface.",
+        "publisher": "Delta",
+        "icon": "soundcloud-logo",
+        "category": "media",
+        "runtime": {
+          "targets": [
+            "desktop",
+            "vps",
+            "container"
+          ],
+          "execution": "process",
+          "minAgent": "0.4.3"
+        },
+        "capabilities": [
+          "status.read",
+          "settings.read",
+          "actions"
+        ],
+        "metrics": [],
+        "settings": [
+          {
+            "key": "accessToken",
+            "type": "secret",
+            "label": "OAuth access token",
+            "default": ""
+          }
+        ],
+        "endpoints": {
+          "status": "soundcloud.status",
+          "settings": "soundcloud.settings"
+        },
+        "actions": [
+          {
+            "id": "search",
+            "label": "Search",
+            "inputs": [
+              {
+                "key": "query",
+                "label": "Query",
+                "type": "string",
+                "required": true
+              }
+            ],
+            "dangerous": false
+          },
+          {
+            "id": "resolve",
+            "label": "Resolve link",
+            "inputs": [
+              {
+                "key": "url",
+                "label": "URL",
+                "type": "string",
+                "required": true
+              }
+            ],
+            "dangerous": false
+          }
+        ],
+        "permissions": [
+          {
+            "scope": "register:soundcloud",
+            "reason": "Register and operate this provider.",
+            "optional": false
+          },
+          {
+            "scope": "call:soundcloud.*",
+            "reason": "Register and operate this provider.",
+            "optional": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "dev.delta.spotify",
+      "component": "spotify",
+      "repository": "https://github.com/n-ycta/delta-media-sources",
+      "version": "0.2.1",
+      "asset": "https://github.com/n-ycta/delta-media-sources/releases/download/v0.2.1/delta-spotify.tar.gz",
+      "sha256": "185c8226c19556ee897dad6383fa2957dae12f89673aee739d1f418467b0821c",
+      "scopes": [
+        "register:spotify",
+        "call:spotify.*"
+      ],
+      "manifest": {
+        "id": "dev.delta.spotify",
+        "name": "Spotify",
+        "version": "0.2.1",
+        "contract": "^1.4.0",
+        "description": "Connect Spotify to media plugins. No separate interface.",
+        "publisher": "Delta",
+        "icon": "spotify-logo",
+        "category": "media",
+        "runtime": {
+          "targets": [
+            "desktop",
+            "vps",
+            "container"
+          ],
+          "execution": "process",
+          "minAgent": "0.4.3"
+        },
+        "capabilities": [
+          "status.read",
+          "settings.read",
+          "actions"
+        ],
+        "metrics": [],
+        "settings": [
+          {
+            "key": "clientId",
+            "type": "string",
+            "label": "Client ID",
+            "default": ""
+          },
+          {
+            "key": "clientSecret",
+            "type": "secret",
+            "label": "Client secret",
+            "default": ""
+          }
+        ],
+        "endpoints": {
+          "status": "spotify.status",
+          "settings": "spotify.settings"
+        },
+        "actions": [
+          {
+            "id": "search",
+            "label": "Search",
+            "inputs": [
+              {
+                "key": "query",
+                "label": "Query",
+                "type": "string",
+                "required": true
+              }
+            ],
+            "dangerous": false
+          },
+          {
+            "id": "resolve",
+            "label": "Resolve link",
+            "inputs": [
+              {
+                "key": "url",
+                "label": "URL",
+                "type": "string",
+                "required": true
+              }
+            ],
+            "dangerous": false
+          }
+        ],
+        "permissions": [
+          {
+            "scope": "register:spotify",
+            "reason": "Register and operate this provider.",
+            "optional": false
+          },
+          {
+            "scope": "call:spotify.*",
+            "reason": "Register and operate this provider.",
+            "optional": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "dev.delta.media",
+      "component": "media",
+      "repository": "https://github.com/n-ycta/delta-media",
+      "version": "0.3.1",
+      "asset": "https://github.com/n-ycta/delta-media/releases/download/v0.3.1/delta-media.tar.gz",
+      "sha256": "c39cfc1021dd7bb6ff1f8aa79ab5418a09582881f4ff68916ea0962f59028cd4",
+      "scopes": [
+        "register:media",
+        "call:media.*",
+        "call:core.components"
+      ],
+      "manifest": {
+        "id": "dev.delta.media",
+        "name": "Delta Media",
+        "version": "0.3.1",
+        "contract": "^1.4.0",
+        "description": "Music, video, radio and connected providers.",
+        "publisher": "Delta",
+        "icon": "vinyl-record",
+        "category": "media",
+        "runtime": {
+          "targets": [
+            "desktop",
+            "vps",
+            "container"
+          ],
+          "execution": "process",
+          "minAgent": "0.4.3"
+        },
+        "capabilities": [
+          "actions",
+          "status.read"
+        ],
+        "metrics": [],
+        "actions": [
+          {
+            "id": "providers",
+            "label": "Connected providers"
+          },
+          {
+            "id": "search",
+            "label": "Search",
+            "inputs": [
+              {
+                "key": "query",
+                "label": "Query",
+                "type": "string",
+                "required": true
+              }
+            ]
+          },
+          {
+            "id": "play",
+            "label": "Play",
+            "inputs": [
+              {
+                "key": "url",
+                "label": "URL",
+                "type": "string",
+                "required": true
+              }
+            ]
+          },
+          {
+            "id": "pause",
+            "label": "Pause"
+          },
+          {
+            "id": "stats",
+            "label": "Statistics"
+          }
+        ],
+        "permissions": [
+          {
+            "scope": "register:media",
+            "reason": "Register Media and discover connected providers.",
+            "optional": false
+          },
+          {
+            "scope": "call:media.*",
+            "reason": "Register Media and discover connected providers.",
+            "optional": false
+          },
+          {
+            "scope": "call:core.components",
+            "reason": "Register Media and discover connected providers.",
+            "optional": false
+          }
+        ]
+      }
     }
   ]
 }
