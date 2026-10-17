@@ -25,6 +25,9 @@ class MediaRegistry(unittest.TestCase):
   self.assertEqual(set(dependencies),{'dev.delta.'+name for name in ['youtube','soundcloud','spotify','downloads']})
   for plugin_id,dependency in dependencies.items():
    self.assertFalse(dependency['required'])
-   self.assertEqual(dependency['version'],'>='+by_id[plugin_id]['version'])
+   self.assertTrue(dependency['version'].startswith('>='))
+   minimum=tuple(map(int,dependency['version'][2:].split('.')))
+   available=tuple(map(int,by_id[plugin_id]['version'].split('.')))
+   self.assertGreaterEqual(available,minimum)
 
 if __name__=='__main__':unittest.main()
