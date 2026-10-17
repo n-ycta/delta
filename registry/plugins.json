@@ -4329,9 +4329,9 @@
       "id": "dev.delta.youtube",
       "component": "youtube",
       "repository": "https://github.com/n-ycta/delta-media-sources",
-      "version": "0.2.1",
-      "asset": "https://github.com/n-ycta/delta-media-sources/releases/download/v0.2.1/delta-youtube.tar.gz",
-      "sha256": "efad335c6aafddf066b5c1555583dd25805e30488982ce6bfb6ffcc49ef4aa7f",
+      "version": "0.2.2",
+      "asset": "https://github.com/n-ycta/delta-media-sources/releases/download/v0.2.2/delta-youtube.tar.gz",
+      "sha256": "44e9491a4b68fa0b4d86d163a9bd088341c242e3a0b541d6a2217fd93841279d",
       "scopes": [
         "register:youtube",
         "call:youtube.*"
@@ -4339,7 +4339,7 @@
       "manifest": {
         "id": "dev.delta.youtube",
         "name": "YouTube",
-        "version": "0.2.1",
+        "version": "0.2.2",
         "contract": "^1.4.0",
         "description": "Connect YouTube to media plugins. No separate interface.",
         "publisher": "Delta",
@@ -4418,9 +4418,9 @@
       "id": "dev.delta.soundcloud",
       "component": "soundcloud",
       "repository": "https://github.com/n-ycta/delta-media-sources",
-      "version": "0.2.1",
-      "asset": "https://github.com/n-ycta/delta-media-sources/releases/download/v0.2.1/delta-soundcloud.tar.gz",
-      "sha256": "1a4856d3998f92df88e023f34e387dcbdc05eba193c2cd3b89ac870724e66516",
+      "version": "0.2.2",
+      "asset": "https://github.com/n-ycta/delta-media-sources/releases/download/v0.2.2/delta-soundcloud.tar.gz",
+      "sha256": "9eb96780e34417775cf29eea5a21f04f15081264172165908b8bae6ebb209f9f",
       "scopes": [
         "register:soundcloud",
         "call:soundcloud.*"
@@ -4428,7 +4428,7 @@
       "manifest": {
         "id": "dev.delta.soundcloud",
         "name": "SoundCloud",
-        "version": "0.2.1",
+        "version": "0.2.2",
         "contract": "^1.4.0",
         "description": "Connect SoundCloud to media plugins. No separate interface.",
         "publisher": "Delta",
@@ -4507,9 +4507,9 @@
       "id": "dev.delta.spotify",
       "component": "spotify",
       "repository": "https://github.com/n-ycta/delta-media-sources",
-      "version": "0.2.1",
-      "asset": "https://github.com/n-ycta/delta-media-sources/releases/download/v0.2.1/delta-spotify.tar.gz",
-      "sha256": "185c8226c19556ee897dad6383fa2957dae12f89673aee739d1f418467b0821c",
+      "version": "0.2.2",
+      "asset": "https://github.com/n-ycta/delta-media-sources/releases/download/v0.2.2/delta-spotify.tar.gz",
+      "sha256": "86a93727047a123b4c86ce27149978a55386b18b502a61e215eea8e6d8849323",
       "scopes": [
         "register:spotify",
         "call:spotify.*"
@@ -4517,7 +4517,7 @@
       "manifest": {
         "id": "dev.delta.spotify",
         "name": "Spotify",
-        "version": "0.2.1",
+        "version": "0.2.2",
         "contract": "^1.4.0",
         "description": "Connect Spotify to media plugins. No separate interface.",
         "publisher": "Delta",
@@ -4602,9 +4602,9 @@
       "id": "dev.delta.media",
       "component": "media",
       "repository": "https://github.com/n-ycta/delta-media",
-      "version": "0.3.3",
-      "asset": "https://github.com/n-ycta/delta-media/releases/download/v0.3.3/delta-media.tar.gz",
-      "sha256": "c097cf015c5216c17fb27841787f2468f788b78bc0508c3161a1c8bd3a8440ad",
+      "version": "0.3.5",
+      "asset": "https://github.com/n-ycta/delta-media/releases/download/v0.3.5/delta-media.tar.gz",
+      "sha256": "31e28387304883af945dee356755546f3d9a8bbaf3b1594ceab3891358fabe96",
       "scopes": [
         "register:media",
         "call:media.*",
@@ -4613,7 +4613,7 @@
       "manifest": {
         "id": "dev.delta.media",
         "name": "Delta Media",
-        "version": "0.3.3",
+        "version": "0.3.5",
         "contract": "^1.4.0",
         "description": "Music, video, radio and connected providers.",
         "publisher": "Delta",
@@ -4628,6 +4628,51 @@
           "execution": "process",
           "minAgent": "0.4.3"
         },
+        "dependencies": [
+          {
+            "kind": "core",
+            "id": "core",
+            "version": ">=0.4.3",
+            "required": true,
+            "features": []
+          },
+          {
+            "kind": "plugin",
+            "id": "dev.delta.youtube",
+            "version": ">=0.2.2",
+            "required": false,
+            "features": [
+              "Media source: youtube"
+            ]
+          },
+          {
+            "kind": "plugin",
+            "id": "dev.delta.soundcloud",
+            "version": ">=0.2.2",
+            "required": false,
+            "features": [
+              "Media source: soundcloud"
+            ]
+          },
+          {
+            "kind": "plugin",
+            "id": "dev.delta.spotify",
+            "version": ">=0.2.2",
+            "required": false,
+            "features": [
+              "Media source: spotify"
+            ]
+          },
+          {
+            "kind": "plugin",
+            "id": "dev.delta.downloads",
+            "version": ">=0.2.2",
+            "required": false,
+            "features": [
+              "Offline media cache (Python 3.10+ on the node)"
+            ]
+          }
+        ],
         "capabilities": [
           "actions",
           "status.read"
@@ -4685,6 +4730,77 @@
           {
             "scope": "call:core.components",
             "reason": "Register Media and discover connected providers.",
+            "optional": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "dev.delta.downloads",
+      "component": "downloads",
+      "repository": "https://github.com/n-ycta/delta-media-sources",
+      "scopes": [
+        "register:downloads",
+        "call:downloads.*"
+      ],
+      "version": "0.2.2",
+      "asset": "https://github.com/n-ycta/delta-media-sources/releases/download/v0.2.2/delta-downloads.tar.gz",
+      "sha256": "abd8be62e5805503fa402bb2f9327a7ee2e919c085f988bb83a8e8979f56d803",
+      "manifest": {
+        "id": "dev.delta.downloads",
+        "name": "YouTube Offline",
+        "version": "0.2.2",
+        "contract": "^1.4.0",
+        "description": "Headless offline cache. Requires Python 3.10+ on the download node. Files stay in the plugin data/offline folder.",
+        "publisher": "Delta",
+        "icon": "cloud-arrow-down",
+        "category": "media",
+        "runtime": {
+          "targets": [
+            "desktop",
+            "vps",
+            "container"
+          ],
+          "execution": "process",
+          "minAgent": "0.4.3"
+        },
+        "capabilities": [
+          "status.read",
+          "actions"
+        ],
+        "metrics": [],
+        "endpoints": {
+          "status": "downloads.status"
+        },
+        "actions": [
+          {
+            "id": "create",
+            "label": "Cache video",
+            "inputs": [
+              {
+                "key": "url",
+                "label": "YouTube URL",
+                "type": "string",
+                "required": true
+              },
+              {
+                "key": "kind",
+                "label": "audio or video",
+                "type": "string",
+                "required": true
+              }
+            ]
+          }
+        ],
+        "permissions": [
+          {
+            "scope": "register:downloads",
+            "reason": "Register and operate the private offline cache.",
+            "optional": false
+          },
+          {
+            "scope": "call:downloads.*",
+            "reason": "Register and operate the private offline cache.",
             "optional": false
           }
         ]
