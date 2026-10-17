@@ -4602,9 +4602,9 @@
       "id": "dev.delta.media",
       "component": "media",
       "repository": "https://github.com/n-ycta/delta-media",
-      "version": "0.3.2",
-      "asset": "https://github.com/n-ycta/delta-media/releases/download/v0.3.2/delta-media.tar.gz",
-      "sha256": "13aa1f2fd03f8527bf619a0e58c79b73356443c035dff4547c5658d64a8a41b1",
+      "version": "0.3.3",
+      "asset": "https://github.com/n-ycta/delta-media/releases/download/v0.3.3/delta-media.tar.gz",
+      "sha256": "c097cf015c5216c17fb27841787f2468f788b78bc0508c3161a1c8bd3a8440ad",
       "scopes": [
         "register:media",
         "call:media.*",
@@ -4613,7 +4613,7 @@
       "manifest": {
         "id": "dev.delta.media",
         "name": "Delta Media",
-        "version": "0.3.2",
+        "version": "0.3.3",
         "contract": "^1.4.0",
         "description": "Music, video, radio and connected providers.",
         "publisher": "Delta",
