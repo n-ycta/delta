@@ -4805,6 +4805,86 @@
           }
         ]
       }
+    },
+    {
+      "id": "dev.delta.vector",
+      "component": "vector",
+      "repository": "https://github.com/n-ycta/delta-vector",
+      "version": "0.1.0",
+      "asset": "https://github.com/n-ycta/delta-vector/releases/download/v0.1.0/delta-vector.tar.gz",
+      "sha256": "f272067f81a9b5288d2ab538aeca3ed69dda8608254a36b9fce7b218aac5e73a",
+      "scopes": [
+        "register:vector",
+        "call:storage.document_get",
+        "call:storage.document_put"
+      ],
+      "manifest": {
+        "id": "dev.delta.vector",
+        "name": "Delta Vector",
+        "version": "0.1.0",
+        "contract": "^1.5.0",
+        "publisher": "Delta",
+        "description": "Tasks, journal and practices without streak pressure.",
+        "icon": "compass",
+        "category": "productivity",
+        "runtime": {
+          "targets": [
+            "desktop",
+            "vps",
+            "container"
+          ],
+          "execution": "process",
+          "minAgent": "0.4.3"
+        },
+        "dependencies": [
+          {
+            "kind": "core",
+            "id": "core",
+            "version": ">=0.4.3, <0.5.0",
+            "required": true
+          },
+          {
+            "kind": "plugin",
+            "id": "dev.delta.db",
+            "version": ">=0.4.0",
+            "required": true
+          }
+        ],
+        "permissions": [
+          {
+            "scope": "register:vector",
+            "reason": "Register the Vector service",
+            "optional": false
+          },
+          {
+            "scope": "call:storage.document_get",
+            "reason": "Persist service-owned Vector documents",
+            "optional": false
+          },
+          {
+            "scope": "call:storage.document_put",
+            "reason": "Persist service-owned Vector documents",
+            "optional": false
+          }
+        ],
+        "metrics": [],
+        "capabilities": [
+          "actions",
+          "status.read"
+        ],
+        "actions": [
+          {
+            "id": "status",
+            "label": "Status"
+          }
+        ],
+        "localizations": {
+          "ru": {
+            "name": "Delta Vector",
+            "description": "\u0417\u0430\u0434\u0430\u0447\u0438, \u0434\u043d\u0435\u0432\u043d\u0438\u043a \u0438 \u043f\u0440\u0430\u043a\u0442\u0438\u043a\u0438 \u0431\u0435\u0437 \u0434\u0430\u0432\u043b\u0435\u043d\u0438\u044f \u0441\u0435\u0440\u0438\u0439."
+          }
+        }
+      }
     }
   ]
 }
