@@ -1,0 +1,39 @@
+name: Sync verified Web release catalog
+on:
+  schedule:
+    - cron: '12,42 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/sync-web-registry.py
+      - tests/web-registry-sync.test.py
+      - .github/workflows/sync-web-registry.yml
+permissions:
+  contents: write
+concurrency:
+  group: web-registry-sync
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Test catalog safety
+        run: python tests/web-registry-sync.test.py
+      - name: Verify latest published package and update catalog
+        run: python scripts/sync-web-registry.py
+      - name: Publish catalog if changed
+        run: |
+          if git diff --quiet -- registry/plugins.json; then exit 0; fi
+          git config user.name 'delta-registry-sync[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add registry/plugins.json
+          git commit -m 'chore(registry): sync verified Delta Web release'
+          git pull --rebase origin main
+          git push origin HEAD:main
