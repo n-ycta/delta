@@ -253,16 +253,16 @@
       "id": "dev.delta.web",
       "component": "web",
       "repository": "https://github.com/n-ycta/delta-web",
-      "version": "0.6.19",
-      "asset": "https://github.com/n-ycta/delta-web/releases/download/v0.6.19/delta-web.tar.gz",
-      "sha256": "00be1cdcd2eb43bde6016da2256f11ef05ce9a42c42516d90542c4f8da582068",
+      "version": "0.6.20",
+      "asset": "https://github.com/n-ycta/delta-web/releases/download/v0.6.20/delta-web.tar.gz",
+      "sha256": "acdc49d6f574a18e3028dfcbf1c537a88c4cdaac420599a00366193acd9260f2",
       "scopes": [
         "admin"
       ],
       "manifest": {
         "id": "dev.delta.web",
         "name": "Delta Web",
-        "version": "0.6.19",
+        "version": "0.6.20",
         "contract": "^1.4.0",
         "description": "Browser host for Delta UI with optional headless service integrations.",
         "publisher": "Delta",
