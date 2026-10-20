@@ -4810,9 +4810,9 @@
       "id": "dev.delta.lifeos",
       "component": "lifeos",
       "repository": "https://github.com/n-ycta/delta-lifeos",
-      "version": "0.3.2",
-      "asset": "https://github.com/n-ycta/delta-lifeos/releases/download/v0.3.2/delta-lifeos.tar.gz",
-      "sha256": "a8592513438221e5de3a5f037eece8a1e8540c34a5e7069ee72c3c034cdaf3b0",
+      "version": "0.3.4",
+      "asset": "https://github.com/n-ycta/delta-lifeos/releases/download/v0.3.4/delta-lifeos.tar.gz",
+      "sha256": "6513b372cc920a97bc458ec98504391d745ec7a0dc60ef014b83bb121b239598",
       "scopes": [
         "register:lifeos",
         "call:storage.document_get",
@@ -4821,7 +4821,7 @@
       "manifest": {
         "id": "dev.delta.lifeos",
         "name": "Delta LifeOS",
-        "version": "0.3.2",
+        "version": "0.3.4",
         "contract": "^1.5.0",
         "publisher": "Delta",
         "description": "Tasks, journal, skills and time.",
