@@ -1,8 +1,13 @@
 # Changelog
 
+### Maintenance fixes
+
+- Publish Storage 0.4.2, Type 0.4.5, Updater 0.1.2 and LifeOS 0.3.1 verified releases.
+- Add repair.sh for updates without Updater, private backups, readiness checks and scoped cross-owner Vector migration. External PostgreSQL is never replaced with an empty fallback.
+
 ## [v0.4.5]
 
-- Replace the Vector installer entry with checksum-verified Delta LifeOS 0.2.1 (lifeos component).
+- Replace the Vector installer entry with checksum-verified Delta LifeOS 0.3.1 (lifeos component).
 
 - Add platform-owned encrypted profile codecs for native hosts.
 - Add private, bounded native UI document persistence and managed manifest discovery.
