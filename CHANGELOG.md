@@ -2,6 +2,8 @@
 
 ## [v0.4.5]
 
+- Replace the Vector installer entry with checksum-verified Delta LifeOS 0.2.0 (lifeos component).
+
 - Add platform-owned encrypted profile codecs for native hosts.
 - Add private, bounded native UI document persistence and managed manifest discovery.
 
