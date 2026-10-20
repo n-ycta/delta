@@ -54,3 +54,9 @@ After updating a native host, open **All apps** (or the app catalog) and update 
 - Web 0.6.22 / UI 0.3.6: retain iframe DOM ordering across app switches; remove retired Vector catalog metadata with a one-time metadata backup, without deleting its user data.
 - The shared FrameHost browser regression passed 20 alternating app switches with the actual LifeOS UI/backend and an inert Media SDK fixture. It is not a physical Android or full Media playback test.
 - Published Linux repair was run twice in an isolated profile; the same test task ID/title survived the second update and Storage/LifeOS reported ready/connected. No user's live profile was modified by that test.
+
+Native release verification for 0.1.13 also completed successfully:
+- [Desktop Linux/Windows native acceptance and publication](https://github.com/n-ycta/delta-desktop/actions/runs/39412213491).
+- [Signed Android build, emulator acceptance and publication](https://github.com/n-ycta/delta-android/actions/runs/39412226344).
+
+These native suites cover their existing startup, installation, persistence and navigation checks; they do not establish physical-device LifeOS/Media switching or battery-background behavior. The 20-switch LifeOS regression described above ran against the shared FrameHost in Chromium.
