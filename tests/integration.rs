@@ -106,7 +106,7 @@ async fn external_plugin_roundtrip() {
 async fn two_nodes_pair_and_route_calls() {
     let a = TestNode::new("node-a").await;
     let b = TestNode::new("node-b").await;
-    let inv = a.admin.call("peers.invite", json!({}), None, None).await.unwrap();
+    let inv = a.admin.call("peers.invite", json!({"allow_local": true}), None, None).await.unwrap();
     let joined = b
         .admin
         .call("peers.join", json!({"url": a.url, "code": inv["code"]}), None, None)
@@ -127,6 +127,21 @@ async fn two_nodes_pair_and_route_calls() {
     assert_eq!(code_of(again).await, "forbidden");
     a.close().await;
     b.close().await;
+}
+
+#[tokio::test]
+async fn invite_refuses_loopback_and_mints_a_phone_link() {
+    let n = TestNode::new("phone-hub").await;
+    assert_eq!(code_of(n.admin.call("peers.invite", json!({}), None, None).await).await, "bad_request");
+    let minted = n.admin.call("peers.invite", json!({"url": "https://hub.example/delta"}), None, None).await.unwrap();
+    let link = minted["link"].as_str().unwrap();
+    assert!(link.starts_with("delta://pair?"), "{link}");
+    assert!(link.contains("hub.example"), "{link}");
+    assert!(link.contains("code="), "{link}");
+    assert_eq!(minted["expires_in"], 600);
+    assert_eq!(minted["url"], "https://hub.example/delta");
+    assert_eq!(code_of(n.admin.call("peers.invite", json!({"url": "http://0.0.0.0:7700"}), None, None).await).await, "bad_request");
+    n.close().await;
 }
 
 #[tokio::test]
@@ -261,7 +276,7 @@ async fn adding_disabled_component_does_not_start_it() {
 async fn explicit_peer_trust_is_directional_revocable_and_single_use() {
     let a = TestNode::new("trust-a").await;
     let b = TestNode::new("trust-b").await;
-    let inv = a.admin.call("peers.invite", json!({"trust_admin":true}), None, None).await.unwrap();
+    let inv = a.admin.call("peers.invite", json!({"trust_admin":true,"allow_local":true}), None, None).await.unwrap();
     b.admin.call("peers.join", json!({"url":a.url,"code":inv["code"],"trust_admin":true,"local_url":b.url}), None, None).await.unwrap();
     assert!(a.admin.call("peers.list",json!({}),None,None).await.unwrap()[0]["trusted_admin"].as_bool().unwrap());
     assert!(b.admin.call("peers.list",json!({}),None,None).await.unwrap()[0]["trusted_admin"].as_bool().unwrap());

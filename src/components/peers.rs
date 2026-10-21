@@ -22,6 +22,16 @@ use std::{
 const INVITE_TTL: f64 = 600.0;
 const PROBE_TIMEOUT: Duration = Duration::from_secs(3);
 
+fn is_unreachable_invite_host(host: &str) -> bool {
+    let host = host.trim_matches(['[', ']']).to_ascii_lowercase();
+    host == "localhost"
+        || host == "0.0.0.0"
+        || host == "::"
+        || host == "::1"
+        || host.starts_with("127.")
+}
+
+
 pub struct Peers {
     me: Weak<Peers>,
     config: Arc<Config>,
@@ -138,6 +148,7 @@ impl Router for Peers {
 // ------------------------------------------------------------ component
 
 #[async_trait]
+
 impl Component for Peers {
     fn id(&self) -> &str {
         "peers"
@@ -205,6 +216,17 @@ impl Component for Peers {
             "peers.invite" => {
                 let trust_admin = args["trust_admin"].as_bool().unwrap_or(false);
                 if trust_admin && !ctx.principal.is_admin() { return Err(DeltaError::forbidden("granting administrative trust requires global admin")); }
+                let configured = self.config.read(|c| c.url.clone());
+                let url = args.get("url").and_then(Value::as_str).map(str::trim).filter(|s| !s.is_empty()).unwrap_or(configured.as_str()).to_string();
+                let parsed = reqwest::Url::parse(&url).map_err(|_| DeltaError::bad_request("invitation endpoint is not a URL"))?;
+                let host = parsed.host_str().unwrap_or("");
+                if !["http", "https"].contains(&parsed.scheme()) || host.is_empty() {
+                    return Err(DeltaError::bad_request("invitation endpoint must be http or https with a host"));
+                }
+                let allow_local = args.get("allow_local").and_then(Value::as_bool).unwrap_or(false);
+                if is_unreachable_invite_host(host) && !allow_local {
+                    return Err(DeltaError::bad_request("invitation endpoint is this machine only; set a LAN, VPN or public URL before adding a phone"));
+                }
                 let code = random_hex(18);
                 let t = now();
                 {
@@ -213,10 +235,12 @@ impl Component for Peers {
                     if inv.len() >= 128 { return Err(DeltaError::conflict("too many pending invitations")); }
                     inv.insert(sha256_hex(code.as_bytes()), (t + INVITE_TTL, trust_admin));
                 }
-                let url = self.config.read(|c| c.url.clone());
+                let mut link = reqwest::Url::parse("delta://pair").expect("static scheme");
+                link.query_pairs_mut().append_pair("url", &url).append_pair("code", &code);
                 Ok(json!({
                     "code": code, "url": url, "expires_in": INVITE_TTL as u64,
                     "command": format!("delta join {url} {code}"),
+                    "link": link.to_string(),
                 }))
             }
             "peers.trust" => {
