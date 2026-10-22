@@ -41,6 +41,12 @@ pub struct PeerRecord {
     pub scopes: Vec<String>,
     #[serde(default)]
     pub added: f64,
+    #[serde(default)]
+    pub kind: String,
+    #[serde(default)]
+    pub last_seen: f64,
+    #[serde(default)]
+    pub online: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -91,6 +97,8 @@ pub struct ConfigData {
     pub listen: String,
     pub port: u16,
     pub url: String,
+    #[serde(default)]
+    pub public_url: String,
     pub tls_cert: Option<String>,
     pub tls_key: Option<String>,
     pub tokens: Vec<TokenRecord>,
@@ -111,6 +119,7 @@ impl Default for ConfigData {
             listen: "127.0.0.1".into(),
             port: DEFAULT_PORT,
             url: String::new(),
+            public_url: String::new(),
             tls_cert: None,
             tls_key: None,
             tokens: vec![],

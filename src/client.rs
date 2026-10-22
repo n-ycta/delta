@@ -57,9 +57,6 @@ impl Client {
             .timeout(timeout.unwrap_or(self.timeout))
             .header("Content-Type", "application/json")
             .header("Accept", "application/json");
-        if let Some(t) = &self.token {
-            req = req.header("Authorization", format!("Bearer {t}"));
-        }
         let mut nonce = String::new();
         if let Some((node_id, secret)) = &self.signer {
             let sig_path = path.split('?').next().unwrap_or(path);
@@ -69,6 +66,10 @@ impl Client {
                 }
                 req = req.header(k, v);
             }
+        }
+        if self.signer.is_none() {
+
+            if let Some(t) = &self.token { req = req.header("Authorization", format!("Bearer {t}")); }
         }
         if method != "GET" {
             req = req.body(body);
@@ -98,7 +99,9 @@ impl Client {
         if payload.get("ok").and_then(Value::as_bool) != Some(true) {
             return Err(DeltaError::from_value(payload.get("error").unwrap_or(&json!({}))));
         }
-        Ok(payload.get("result").cloned().unwrap_or(Value::Null))
+        let result=payload.get("result").cloned().unwrap_or(Value::Null);
+        Ok(result)
+
     }
 
     pub async fn call(

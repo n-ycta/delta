@@ -514,7 +514,7 @@ impl Kernel {
         }
         if !self.is_local(node) {
             let node = node.unwrap_or("");
-            if principal.kind == Kind::Peer {
+            if principal.kind == Kind::Peer && !principal.is_admin() {
                 return Err(DeltaError::forbidden("forwarded calls cannot be forwarded again"));
             }
             let Some(router) = self.router() else {

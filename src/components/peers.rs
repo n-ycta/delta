@@ -38,6 +38,7 @@ pub struct Peers {
     invites: Mutex<HashMap<String, (f64, bool)>>, // sha256(code) -> (expiry, grant_admin)
     nonces: NonceCache,
     kernel: Mutex<Option<Arc<Kernel>>>,
+    discovered: Mutex<Vec<PeerRecord>>,
 }
 
 impl Peers {
@@ -48,7 +49,26 @@ impl Peers {
             invites: Mutex::new(HashMap::new()),
             nonces: NonceCache::new(),
             kernel: Mutex::new(None),
+            discovered: Mutex::new(Vec::new()),
         })
+    }
+
+
+    async fn refresh_discovered(&self) {
+        let Ok(k) = self.kernel() else { return };
+        let mut found = Vec::new();
+        let mut seen: std::collections::HashSet<String> = self.peers().iter().map(|p| p.node_id.clone()).collect();
+        seen.insert(k.node_id.clone());
+        for peer in self.peers() {
+            if peer.url.trim().is_empty() { continue; }
+            let Ok(remote) = self.client(&peer, &k, Some(PROBE_TIMEOUT)).call("peers.list", json!({}), None, None).await else { continue };
+            for item in remote.as_array().cloned().unwrap_or_default() {
+                let id = item.get("node_id").and_then(Value::as_str).unwrap_or("").to_string();
+                if id.is_empty() || !seen.insert(id.clone()) { continue; }
+                found.push(PeerRecord { node_id: id, name: item.get("name").and_then(Value::as_str).unwrap_or("").to_string(), url: item.get("url").and_then(Value::as_str).unwrap_or("").to_string(), secret: String::new(), scopes: vec![], added: 0.0, kind: item.get("kind").and_then(Value::as_str).unwrap_or("").to_string(), last_seen: item.get("last_seen").and_then(Value::as_f64).unwrap_or(0.0), online: item.get("online").and_then(Value::as_bool).unwrap_or(false) });
+            }
+        }
+        *self.discovered.lock().unwrap() = found;
     }
 
     fn kernel(&self) -> Result<Arc<Kernel>> {
@@ -117,9 +137,21 @@ impl Authenticator for Peers {
 #[async_trait]
 impl Router for Peers {
     async fn call(&self, node: &str, capability: &str, args: Value) -> Result<Value> {
-        let peer = self.resolve(node)?;
         let k = self.kernel()?;
-        self.client(&peer, &k, None).call(capability, args, None, None).await
+        if let Ok(peer) = self.resolve(node) {
+            if !peer.url.trim().is_empty() {
+                return self.client(&peer, &k, None).call(capability, args, None, None).await;
+            }
+            return Err(DeltaError::unavailable("peer is outbound-only"));
+        }
+        // The caller knows a peer this node does not dial directly. Ask a reachable admin peer to route it.
+        for peer in self.peers() {
+            if peer.url.trim().is_empty() || !peer.scopes.iter().any(|s| s == "admin") { continue; }
+            if let Ok(v) = self.client(&peer, &k, None).call(capability, args.clone(), Some(node), None).await {
+                return Ok(v);
+            }
+        }
+        Err(DeltaError::not_found(format!("unknown node {node}")))
     }
 
     async fn remote_catalog(&self) -> Vec<Value> {
@@ -194,6 +226,9 @@ impl Component for Peers {
     fn start(&self, kernel: &Arc<Kernel>) {
         *self.kernel.lock().unwrap() = Some(kernel.clone());
         if let Some(me) = self.me.upgrade() {
+            tokio::spawn(async move { loop { me.refresh_discovered().await; tokio::time::sleep(Duration::from_secs(5)).await; } });
+        }
+        if let Some(me) = self.me.upgrade() {
             let router: Arc<dyn Router> = me.clone();
             kernel.set_router(Some(router));
             let auth: Arc<dyn Authenticator> = me;
@@ -235,11 +270,13 @@ impl Component for Peers {
                     if inv.len() >= 128 { return Err(DeltaError::conflict("too many pending invitations")); }
                     inv.insert(sha256_hex(code.as_bytes()), (t + INVITE_TTL, trust_admin));
                 }
+                let public_url = self.config.read(|c| c.public_url.clone());
+                let preferred = if public_url.trim().is_empty() { url.clone() } else { public_url.trim().to_string() };
                 let mut link = reqwest::Url::parse("delta://pair").expect("static scheme");
-                link.query_pairs_mut().append_pair("url", &url).append_pair("code", &code);
+                link.query_pairs_mut().append_pair("url", &preferred).append_pair("code", &code);
                 Ok(json!({
-                    "code": code, "url": url, "expires_in": INVITE_TTL as u64,
-                    "command": format!("delta join {url} {code}"),
+                    "code": code, "url": preferred, "local_url": url, "public_url": public_url, "expires_in": INVITE_TTL as u64,
+                    "command": format!("delta join {preferred} {code}"),
                     "link": link.to_string(),
                 }))
             }
@@ -270,6 +307,9 @@ impl Component for Peers {
                     secret: secret.clone(),
                     scopes: if trust_admin { vec!["admin".into()] } else { vec!["call:*".into()] },
                     added: now(),
+                    kind: trunc(&sarg("kind"), 32),
+                    last_seen: now(),
+                    online: false,
                 });
                 Ok(json!({
                     "node_id": k.node_id, "name": k.name,
@@ -279,16 +319,19 @@ impl Component for Peers {
             "peers.join" => {
                 let url = sarg("url");
                 if args["trust_admin"].as_bool() == Some(true) && !ctx.principal.is_admin() { return Err(DeltaError::forbidden("granting administrative trust requires global admin")); }
-                let advertised = args.get("local_url").and_then(Value::as_str).map(str::to_owned).unwrap_or_else(|| self.config.read(|c| c.url.clone()));
-                let parsed = reqwest::Url::parse(&advertised).map_err(|_| DeltaError::bad_request("invalid local_url"))?;
-                if !["http", "https"].contains(&parsed.scheme()) || parsed.host_str().is_none() || !parsed.username().is_empty() || parsed.password().is_some() || parsed.fragment().is_some() || advertised.len() > 512 { return Err(DeltaError::bad_request("invalid local_url")); }
+                // A phone behind NAT has no address the hub can dial. Empty means outbound-only.
+                let advertised = args.get("local_url").and_then(Value::as_str).unwrap_or("").trim().to_string();
+                if !advertised.is_empty() {
+                    let parsed = reqwest::Url::parse(&advertised).map_err(|_| DeltaError::bad_request("invalid local_url"))?;
+                    if !["http", "https"].contains(&parsed.scheme()) || parsed.host_str().is_none() || !parsed.username().is_empty() || parsed.password().is_some() || parsed.fragment().is_some() || advertised.len() > 512 { return Err(DeltaError::bad_request("invalid local_url")); }
+                }
                 let res = Client::new(&url, None)
                     .with_timeout(Duration::from_secs(10))
                     .call(
                         "peers.accept",
                         json!({
                             "code": sarg("code"), "node_id": k.node_id, "name": k.name,
-                            "url": advertised,
+                            "url": advertised, "kind": k.config.read(|c| c.node_kind.clone()),
                         }),
                         None,
                         None,
@@ -302,24 +345,45 @@ impl Component for Peers {
                     secret: field("secret"),
                     scopes: if args["trust_admin"].as_bool()==Some(true) { vec!["admin".into()] } else { vec!["call:*".into()] },
                     added: now(),
+                    kind: field("kind"),
+                    last_seen: now(),
+                    online: false,
                 };
                 let out = json!({"node_id": rec.node_id, "name": rec.name, "url": url});
                 self.upsert(rec);
                 Ok(out)
             }
             "peers.list" => {
-                let peers = self.peers();
+                let mut peers = self.peers();
+                // An admin caller sees the same network, including peers it did not join directly.
+                if ctx.principal.is_admin() {
+                    let caller = ctx.principal.peer_id.clone();
+                    let mut seen: std::collections::HashSet<String> = peers.iter().map(|p| p.node_id.clone()).collect();
+                    for peer in self.discovered.lock().unwrap().clone() {
+                        if peer.node_id == caller || !seen.insert(peer.node_id.clone()) { continue; }
+                        peers.push(peer);
+                    }
+                }
                 let futs = peers.iter().map(|p| {
                     let c = self.client(p, &k, Some(PROBE_TIMEOUT));
                     let p = p.clone();
                     async move {
-                        let mut out = json!({"node_id": p.node_id, "name": p.name, "url": p.url, "trusted_admin": p.scopes.iter().any(|s| s == "admin"), "online": false});
+                        let mut out = json!({"node_id": p.node_id, "name": p.name, "url": p.url, "kind": p.kind, "last_seen": p.last_seen, "trusted_admin": p.scopes.iter().any(|s| s == "admin"), "online": false});
+                        if p.secret.is_empty() {
+                            out["online"] = json!(p.online);
+                            return out;
+                        }
+                        if p.url.trim().is_empty() {
+                            out["error"] = json!("outbound-only peer");
+                            return out;
+                        }
                         match c.call("core.info", json!({}), None, None).await {
                             Ok(info) => {
                                 out["online"] = json!(true);
-                                out["kind"] = info.get("kind").cloned().unwrap_or(json!("desktop"));
+                                out["kind"] = info.get("kind").cloned().filter(|v| v.as_str().map(|s| !s.is_empty()).unwrap_or(false)).unwrap_or(json!(p.kind));
                                 out["version"] = info.get("version").cloned().unwrap_or(Value::Null);
                                 out["uptime"] = info.get("uptime").cloned().unwrap_or(Value::Null);
+                                out["last_seen"] = json!(now());
                             }
                             Err(e) => out["error"] = json!(e.message),
                         }
