@@ -392,3 +392,26 @@ async fn supervisor_stop_terminates_the_whole_process_group() {
     assert!(!alive(pid), "grandchild survived supervisor.stop");
     n.close().await;
 }
+
+#[tokio::test]
+async fn offline_peer_does_not_delay_or_reclassify_calls_to_other_peers() {
+    let a = TestNode::new("route-a").await;
+    let b = TestNode::new("route-b").await;
+    let c = TestNode::new("route-c").await;
+    for n in [&b, &c] {
+        let inv = a.admin.call("peers.invite", json!({}), None, None).await.unwrap();
+        n.admin.call("peers.join", json!({"url": a.url, "code": inv["code"], "local_url": n.url}), None, None).await.unwrap();
+    }
+    c.close().await;
+    let started = std::time::Instant::now();
+    a.admin.call("system.ping", json!({}), Some("route-b"), None).await.unwrap();
+    assert!(started.elapsed() < Duration::from_secs(2), "offline peer slowed a call to another peer");
+
+    let t = a.admin.call("tokens.create", json!({"name": "viewer", "scopes": ["call:system.*"]}), None, None).await.unwrap();
+    let viewer = a.client(t["token"].as_str());
+    assert_eq!(code_of(viewer.call("system.ping", json!({}), Some("route-c"), None).await).await, "unavailable");
+    // authorization stays fail-closed on the target's real admin flag
+    assert_eq!(code_of(viewer.call("tokens.list", json!({}), Some("route-b"), None).await).await, "forbidden");
+    a.close().await;
+    b.close().await;
+}

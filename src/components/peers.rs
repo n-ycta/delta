@@ -130,6 +130,15 @@ impl Router for Peers {
         join_all(futs).await.into_iter().flatten().collect()
     }
 
+    async fn remote_capabilities(&self, node: &str) -> Result<Vec<Value>> {
+        let peer = self.resolve(node)?;
+        let k = self.kernel()?;
+        match self.client(&peer, &k, Some(PROBE_TIMEOUT)).capabilities("local").await {
+            Ok(Value::Array(a)) => Ok(a),
+            _ => Err(DeltaError::unavailable(format!("node {node} is unreachable"))),
+        }
+    }
+
     fn secret_for(&self, peer_id: &str) -> Option<String> {
         self.peers().into_iter().find(|p| p.node_id == peer_id).map(|p| p.secret)
     }
