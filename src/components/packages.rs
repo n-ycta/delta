@@ -527,7 +527,7 @@ mod tests {
         h.as_old_mut().name[..name.len()].copy_from_slice(name.as_bytes());
         h.set_size(data.len() as u64);
         h.set_entry_type(kind);
-        h.set_mode(0o644);
+        h.set_mode(if kind == tar::EntryType::Directory { 0o755 } else { 0o644 });
         if let Some(l) = link {
             h.set_link_name(l).unwrap()
         }
