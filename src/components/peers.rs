@@ -66,9 +66,9 @@ impl Peers {
         self.seen.lock().unwrap().insert(node_id.to_string(), now());
     }
 
-    /// Peers we may route through: dialable and trusted as admin.
+    /// Peers we may ask to route for us; the hub itself decides whether we are admin there.
     fn hubs(&self) -> Vec<PeerRecord> {
-        self.peers().into_iter().filter(|p| dialable(p) && !p.secret.is_empty() && p.scopes.iter().any(|s| s == "admin")).collect()
+        self.peers().into_iter().filter(|p| dialable(p) && !p.secret.is_empty()).collect()
     }
 
     fn is_discovered(&self, node: &str) -> bool {

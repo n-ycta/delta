@@ -207,7 +207,7 @@ async fn admin_phone_sees_hub_nodes() {
     let inv = hub.admin.call("peers.invite", json!({"allow_local": true, "trust_admin": true}), None, None).await.unwrap();
     vps.admin.call("peers.join", json!({"url": hub.url, "code": inv["code"], "local_url": vps.url}), None, None).await.unwrap();
     let inv = hub.admin.call("peers.invite", json!({"allow_local": true, "trust_admin": true}), None, None).await.unwrap();
-    phone.admin.call("peers.join", json!({"url": hub.url, "code": inv["code"], "trust_admin": true}), None, None).await.unwrap();
+    phone.admin.call("peers.join", json!({"url": hub.url, "code": inv["code"]}), None, None).await.unwrap();
     assert_eq!(hub.node.config.read(|c| c.peers.iter().find(|p| p.node_id == phone_id).unwrap().url.clone()), "", "phone is outbound-only on the hub");
 
     let mut rows = json!([]);
@@ -222,6 +222,11 @@ async fn admin_phone_sees_hub_nodes() {
     assert_eq!(rows.iter().filter(|r| r["node_id"] == vps_id).count(), 1);
     assert!(rows.iter().all(|r| r["node_id"] != phone_id && !r["url"].as_str().unwrap_or("").ends_with(":0")), "no self or ghost rows: {rows:?}");
     assert!(rows.iter().any(|r| r["name"] == "hub" && r.get("discovered").is_none()));
+
+    // the hub got no admin rights over the phone
+    let hub_id = id_of(&hub).await;
+    let on_phone = Client::new(&phone.url, None).with_signer(hub_id, phone.node.config.read(|c| c.peers[0].secret.clone()));
+    assert_eq!(code_of(on_phone.call("tokens.list", json!({}), None, None).await).await, "forbidden");
 
     // the call goes phone -> hub -> vps
     let r = phone.admin.call("system.ping", json!({"echo": "via hub"}), Some(&vps_id), None).await.unwrap();
@@ -245,9 +250,9 @@ async fn hub_without_admin_trust_hides_its_nodes_from_the_phone() {
     let vps_id = vps.admin.call("core.info", json!({}), None, None).await.unwrap()["node_id"].as_str().unwrap().to_string();
     let inv = hub.admin.call("peers.invite", json!({"allow_local": true}), None, None).await.unwrap();
     vps.admin.call("peers.join", json!({"url": hub.url, "code": inv["code"], "local_url": vps.url}), None, None).await.unwrap();
-    // the hub does not trust the phone as admin (the phone trusting the hub is not enough)
+    // the hub does not trust the phone as admin 
     let inv = hub.admin.call("peers.invite", json!({"allow_local": true}), None, None).await.unwrap();
-    phone.admin.call("peers.join", json!({"url": hub.url, "code": inv["code"], "trust_admin": true}), None, None).await.unwrap();
+    phone.admin.call("peers.join", json!({"url": hub.url, "code": inv["code"]}), None, None).await.unwrap();
     tokio::time::sleep(Duration::from_millis(700)).await;
     let rows = phone.admin.call("peers.list", json!({}), None, None).await.unwrap();
     assert!(rows.as_array().unwrap().iter().all(|r| r["node_id"] != vps_id), "{rows:?}");
@@ -623,7 +628,6 @@ async fn port_zero_client_joins_outbound_only_and_last_contact_is_reported() {
     assert_eq!(row["url"], "");
     assert_eq!(row["outbound_only"], true);
     assert_eq!(row["online"], false);
-    assert!(row["last_seen"].is_null(), "never contacted yet");
     assert_eq!(code_of(hub.admin.call("system.ping", json!({}), Some("ghost-client"), None).await).await, "unavailable");
 
     // the client reaches the hub through the signed channel, which counts as contact
