@@ -91,6 +91,8 @@ pub struct ConfigData {
     pub listen: String,
     pub port: u16,
     pub url: String,
+    #[serde(default)]
+    pub public_url: String,
     pub tls_cert: Option<String>,
     pub tls_key: Option<String>,
     pub tokens: Vec<TokenRecord>,
@@ -111,6 +113,7 @@ impl Default for ConfigData {
             listen: "127.0.0.1".into(),
             port: DEFAULT_PORT,
             url: String::new(),
+            public_url: String::new(),
             tls_cert: None,
             tls_key: None,
             tokens: vec![],

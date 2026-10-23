@@ -112,7 +112,7 @@ async fn external_plugin_roundtrip() {
 async fn two_nodes_pair_and_route_calls() {
     let a = TestNode::new("node-a").await;
     let b = TestNode::new("node-b").await;
-    let inv = a.admin.call("peers.invite", json!({}), None, None).await.unwrap();
+    let inv = a.admin.call("peers.invite", json!({"allow_local": true}), None, None).await.unwrap();
     let joined = b
         .admin
         .call("peers.join", json!({"url": a.url, "code": inv["code"]}), None, None)
@@ -137,6 +137,124 @@ async fn two_nodes_pair_and_route_calls() {
     assert_eq!(code_of(again).await, "forbidden");
     a.close().await;
     b.close().await;
+}
+
+#[tokio::test]
+async fn invite_refuses_loopback_and_mints_a_phone_link() {
+    let n = TestNode::new("phone-hub").await;
+    assert_eq!(code_of(n.admin.call("peers.invite", json!({}), None, None).await).await, "bad_request");
+    let minted = n.admin.call("peers.invite", json!({"url": "https://hub.example/delta"}), None, None).await.unwrap();
+    let link = minted["link"].as_str().unwrap();
+    assert!(link.starts_with("delta://pair?"), "{link}");
+    assert!(link.contains("hub.example"), "{link}");
+    assert!(link.contains("code="), "{link}");
+    assert_eq!(minted["expires_in"], 600);
+    assert_eq!(minted["url"], "https://hub.example/delta");
+    assert_eq!(code_of(n.admin.call("peers.invite", json!({"url": "http://0.0.0.0:7700"}), None, None).await).await, "bad_request");
+    n.close().await;
+}
+
+#[tokio::test]
+async fn invite_refuses_port_zero_unless_allow_local() {
+    let n = TestNode::new("zero-hub").await;
+    for url in ["http://127.0.0.1:0", "http://hub.example:0"] {
+        assert_eq!(code_of(n.admin.call("peers.invite", json!({"url": url}), None, None).await).await, "bad_request", "{url}");
+        let ok = n.admin.call("peers.invite", json!({"url": url, "allow_local": true}), None, None).await.unwrap();
+        assert!(ok["link"].as_str().unwrap().starts_with("delta://pair?"));
+    }
+    n.close().await;
+}
+
+#[tokio::test]
+async fn peer_client_sends_no_bearer_and_plain_peers_cannot_forward() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    // a signing client must not leak its token as a Bearer header
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let seen = tokio::spawn(async move {
+        let (mut s, _) = listener.accept().await.unwrap();
+        let mut buf = vec![0u8; 8192];
+        let n = s.read(&mut buf).await.unwrap();
+        let _ = s.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}").await;
+        String::from_utf8_lossy(&buf[..n]).to_ascii_lowercase()
+    });
+    let _ = Client::new(&url, Some("dlt_secret".into())).with_signer("n".into(), "s".into()).call("core.info", json!({}), None, None).await;
+    let raw = seen.await.unwrap();
+    assert!(raw.contains("x-delta-node") && !raw.contains("authorization"), "{raw}");
+
+    // an ordinary (non-admin) peer cannot ask us to forward a call to a third node
+    let a = TestNode::new("fwd-a").await;
+    let b = TestNode::new("fwd-b").await;
+    let inv = a.admin.call("peers.invite", json!({"allow_local": true}), None, None).await.unwrap();
+    b.admin.call("peers.join", json!({"url": a.url, "code": inv["code"], "local_url": b.url}), None, None).await.unwrap();
+    let secret = b.node.config.read(|c| c.peers[0].secret.clone());
+    let b_id = b.admin.call("core.info", json!({}), None, None).await.unwrap()["node_id"].as_str().unwrap().to_string();
+    let as_peer = Client::new(&a.url, None).with_signer(b_id, secret);
+    assert_eq!(code_of(as_peer.call("system.ping", json!({}), Some("elsewhere"), None).await).await, "forbidden");
+    a.close().await;
+    b.close().await;
+}
+
+#[tokio::test]
+async fn admin_phone_sees_hub_nodes() {
+    let hub = TestNode::new("hub").await;
+    let vps = TestNode::new("vps").await;
+    let phone = TestNode::new("phone").await;
+    phone.node.config.update(|c| c.url = "http://127.0.0.1:0".into());
+    let id_of = |n: &TestNode| { let c = n.admin.clone(); async move { c.call("core.info", json!({}), None, None).await.unwrap()["node_id"].as_str().unwrap().to_string() } };
+    let (vps_id, phone_id) = (id_of(&vps).await, id_of(&phone).await);
+
+    let inv = hub.admin.call("peers.invite", json!({"allow_local": true, "trust_admin": true}), None, None).await.unwrap();
+    vps.admin.call("peers.join", json!({"url": hub.url, "code": inv["code"], "local_url": vps.url}), None, None).await.unwrap();
+    let inv = hub.admin.call("peers.invite", json!({"allow_local": true, "trust_admin": true}), None, None).await.unwrap();
+    phone.admin.call("peers.join", json!({"url": hub.url, "code": inv["code"], "trust_admin": true}), None, None).await.unwrap();
+    assert_eq!(hub.node.config.read(|c| c.peers.iter().find(|p| p.node_id == phone_id).unwrap().url.clone()), "", "phone is outbound-only on the hub");
+
+    let mut rows = json!([]);
+    for _ in 0..150 {
+        rows = phone.admin.call("peers.list", json!({}), None, None).await.unwrap();
+        if rows.as_array().unwrap().iter().any(|r| r["node_id"] == vps_id) { break; }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    let rows = rows.as_array().unwrap();
+    let v = rows.iter().find(|r| r["node_id"] == vps_id).expect("hub's node is discovered");
+    assert_eq!(v["discovered"], true);
+    assert_eq!(rows.iter().filter(|r| r["node_id"] == vps_id).count(), 1);
+    assert!(rows.iter().all(|r| r["node_id"] != phone_id && !r["url"].as_str().unwrap_or("").ends_with(":0")), "no self or ghost rows: {rows:?}");
+    assert!(rows.iter().any(|r| r["name"] == "hub" && r.get("discovered").is_none()));
+
+    // the call goes phone -> hub -> vps
+    let r = phone.admin.call("system.ping", json!({"echo": "via hub"}), Some(&vps_id), None).await.unwrap();
+    assert_eq!((r["node"].as_str(), r["echo"].as_str()), (Some("vps"), Some("via hub")));
+
+    // a non-admin token on the phone does not see discovered nodes
+    let t = phone.admin.call("tokens.create", json!({"name": "viewer", "scopes": ["call:*"]}), None, None).await.unwrap();
+    let listed = phone.client(t["token"].as_str()).call("peers.list", json!({}), None, None).await.unwrap();
+    assert!(listed.as_array().unwrap().iter().all(|r| r["node_id"] != vps_id));
+    hub.close().await;
+    vps.close().await;
+    phone.close().await;
+}
+
+#[tokio::test]
+async fn hub_without_admin_trust_hides_its_nodes_from_the_phone() {
+    let hub = TestNode::new("hub2").await;
+    let vps = TestNode::new("vps2").await;
+    let phone = TestNode::new("phone2").await;
+    phone.node.config.update(|c| c.url = "http://127.0.0.1:0".into());
+    let vps_id = vps.admin.call("core.info", json!({}), None, None).await.unwrap()["node_id"].as_str().unwrap().to_string();
+    let inv = hub.admin.call("peers.invite", json!({"allow_local": true}), None, None).await.unwrap();
+    vps.admin.call("peers.join", json!({"url": hub.url, "code": inv["code"], "local_url": vps.url}), None, None).await.unwrap();
+    // the hub does not trust the phone as admin (the phone trusting the hub is not enough)
+    let inv = hub.admin.call("peers.invite", json!({"allow_local": true}), None, None).await.unwrap();
+    phone.admin.call("peers.join", json!({"url": hub.url, "code": inv["code"], "trust_admin": true}), None, None).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(700)).await;
+    let rows = phone.admin.call("peers.list", json!({}), None, None).await.unwrap();
+    assert!(rows.as_array().unwrap().iter().all(|r| r["node_id"] != vps_id), "{rows:?}");
+    assert_eq!(code_of(phone.admin.call("system.ping", json!({}), Some(&vps_id), None).await).await, "not_found");
+    hub.close().await;
+    vps.close().await;
+    phone.close().await;
 }
 
 #[tokio::test]
@@ -272,7 +390,7 @@ async fn explicit_peer_trust_is_directional_revocable_and_single_use() {
     let a = TestNode::new("trust-a").await;
     let b = TestNode::new("trust-b").await;
     let b_id = b.admin.call("core.info", json!({}), None, None).await.unwrap()["node_id"].as_str().unwrap().to_string();
-    let inv = a.admin.call("peers.invite", json!({"trust_admin":true}), None, None).await.unwrap();
+    let inv = a.admin.call("peers.invite", json!({"trust_admin":true,"allow_local":true}), None, None).await.unwrap();
     b.admin.call("peers.join", json!({"url":a.url,"code":inv["code"],"trust_admin":true,"local_url":b.url}), None, None).await.unwrap();
     assert!(a.admin.call("peers.list",json!({}),None,None).await.unwrap()[0]["trusted_admin"].as_bool().unwrap());
     assert!(b.admin.call("peers.list",json!({}),None,None).await.unwrap()[0]["trusted_admin"].as_bool().unwrap());
@@ -286,7 +404,7 @@ async fn explicit_peer_trust_is_directional_revocable_and_single_use() {
     assert_eq!(code_of(b.admin.call("peers.join",json!({"url":a.url,"code":inv["code"]}),None,None).await).await,"forbidden");
     let narrow=a.admin.call("tokens.create",json!({"name":"pairing-only","scopes":["admin:peers.invite","admin:peers.join","admin:peers.trust"]}),None,None).await.unwrap();
     let restricted=a.client(narrow["token"].as_str());
-    assert_eq!(code_of(restricted.call("peers.invite",json!({"trust_admin":true}),None,None).await).await,"forbidden");
+    assert_eq!(code_of(restricted.call("peers.invite",json!({"trust_admin":true,"allow_local":true}),None,None).await).await,"forbidden");
     assert_eq!(code_of(restricted.call("peers.trust",json!({"node":b_id,"admin":true}),None,None).await).await,"forbidden");
     a.close().await;b.close().await;
 }
@@ -473,7 +591,7 @@ async fn offline_peer_does_not_delay_or_reclassify_calls_to_other_peers() {
     let b = TestNode::new("route-b").await;
     let c = TestNode::new("route-c").await;
     for n in [&b, &c] {
-        let inv = a.admin.call("peers.invite", json!({}), None, None).await.unwrap();
+        let inv = a.admin.call("peers.invite", json!({"allow_local": true}), None, None).await.unwrap();
         n.admin.call("peers.join", json!({"url": a.url, "code": inv["code"], "local_url": n.url}), None, None).await.unwrap();
     }
     c.close().await;
@@ -496,7 +614,7 @@ async fn port_zero_client_joins_outbound_only_and_last_contact_is_reported() {
     let client = TestNode::new("ghost-client").await;
     // what a native client has configured before it listens
     client.node.config.update(|c| c.url = "http://127.0.0.1:0".into());
-    let inv = hub.admin.call("peers.invite", json!({}), None, None).await.unwrap();
+    let inv = hub.admin.call("peers.invite", json!({"allow_local": true}), None, None).await.unwrap();
     client.admin.call("peers.join", json!({"url": hub.url, "code": inv["code"]}), None, None).await.unwrap();
 
     let started = std::time::Instant::now();
@@ -515,7 +633,7 @@ async fn port_zero_client_joins_outbound_only_and_last_contact_is_reported() {
     assert!((delta::util::now() - seen).abs() < 30.0);
 
     // an explicitly advertised port-0 address is refused
-    let inv = hub.admin.call("peers.invite", json!({}), None, None).await.unwrap();
+    let inv = hub.admin.call("peers.invite", json!({"allow_local": true}), None, None).await.unwrap();
     let bad = client.admin.call("peers.join", json!({"url": hub.url, "code": inv["code"], "local_url": "http://127.0.0.1:0"}), None, None).await;
     assert_eq!(code_of(bad).await, "bad_request");
     hub.close().await;
@@ -555,7 +673,7 @@ async fn prune_only_forgets_port_zero_registrations_and_only_when_asked() {
 async fn calling_an_offline_peer_reports_unavailable() {
     let a = TestNode::new("off-a").await;
     let b = TestNode::new("off-b").await;
-    let inv = a.admin.call("peers.invite", json!({}), None, None).await.unwrap();
+    let inv = a.admin.call("peers.invite", json!({"allow_local": true}), None, None).await.unwrap();
     b.admin.call("peers.join", json!({"url": a.url, "code": inv["code"], "local_url": b.url}), None, None).await.unwrap();
     a.admin.call("system.ping", json!({}), Some("off-b"), None).await.unwrap();
     b.close().await;
@@ -570,7 +688,7 @@ async fn calling_an_offline_peer_reports_unavailable() {
 async fn peers_remove_notifies_the_other_side_and_leave_is_peer_only() {
     let a = TestNode::new("rm-a").await;
     let b = TestNode::new("rm-b").await;
-    let inv = a.admin.call("peers.invite", json!({}), None, None).await.unwrap();
+    let inv = a.admin.call("peers.invite", json!({"allow_local": true}), None, None).await.unwrap();
     b.admin.call("peers.join", json!({"url": a.url, "code": inv["code"], "local_url": b.url}), None, None).await.unwrap();
     // an owner token is not a peer: it cannot make a node leave
     assert_eq!(code_of(a.admin.call("peers.leave", json!({}), None, None).await).await, "forbidden");
@@ -583,7 +701,7 @@ async fn peers_remove_notifies_the_other_side_and_leave_is_peer_only() {
     assert_ne!(code_of(b.admin.call("system.ping", json!({}), Some("rm-a"), None).await).await, "ok");
 
     // removal still works locally when the other side cannot be told
-    let inv = a.admin.call("peers.invite", json!({}), None, None).await.unwrap();
+    let inv = a.admin.call("peers.invite", json!({"allow_local": true}), None, None).await.unwrap();
     b.admin.call("peers.join", json!({"url": a.url, "code": inv["code"], "local_url": b.url}), None, None).await.unwrap();
     b.close().await;
     a.admin.call("peers.remove", json!({"node": "rm-b"}), None, None).await.unwrap();

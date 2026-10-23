@@ -93,6 +93,9 @@ async fn dispatch(
         return Ok(json!({"status": "ok", "version": VERSION}));
     }
     let p = k.authenticate(method.as_str(), path, headers, body)?;
+    if path.ends_with("/call") {
+    }
+
     *principal = Some(p.clone());
     let data = parse_json(body)?;
     route(k, method.as_str(), parts, uri.query(), data, &p).await
