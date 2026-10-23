@@ -41,6 +41,9 @@ pub struct PeerRecord {
     pub scopes: Vec<String>,
     #[serde(default)]
     pub added: f64,
+    /// true only when this node itself ran `peers.join` to the peer (it may then ask it for routing)
+    #[serde(default)]
+    pub joined: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

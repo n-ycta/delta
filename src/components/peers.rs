@@ -34,10 +34,18 @@ fn dialable(p: &PeerRecord) -> bool {
 
 /// An invitation endpoint that a phone or another machine can never reach.
 fn is_unreachable_invite(url: &reqwest::Url) -> bool {
+    use std::net::{IpAddr, Ipv6Addr};
     let host = url.host_str().unwrap_or("").trim_matches(['[', ']']).to_ascii_lowercase();
-    host == "localhost" || host == "0.0.0.0" || host == "::" || host == "::1" || host.starts_with("127.") || url.port() == Some(0)
+    let local = match host.parse::<IpAddr>() {
+        Ok(IpAddr::V4(ip)) => ip.is_loopback() || ip.is_unspecified(),
+        Ok(IpAddr::V6(ip)) => {
+            let v4 = |ip: Ipv6Addr| ip.to_ipv4_mapped().map(|v| v.is_loopback() || v.is_unspecified()).unwrap_or(false);
+            ip.is_loopback() || ip.is_unspecified() || v4(ip)
+        }
+        Err(_) => host.is_empty() || host == "localhost" || host.ends_with(".localhost"),
+    };
+    local || url.port() == Some(0)
 }
-
 
 pub struct Peers {
     me: Weak<Peers>,
@@ -66,13 +74,15 @@ impl Peers {
         self.seen.lock().unwrap().insert(node_id.to_string(), now());
     }
 
-    /// Peers we may ask to route for us; the hub itself decides whether we are admin there.
+    /// Peers we joined ourselves and may ask to route for us; the hub itself decides whether we are admin there.
     fn hubs(&self) -> Vec<PeerRecord> {
-        self.peers().into_iter().filter(|p| dialable(p) && !p.secret.is_empty()).collect()
+        self.peers().into_iter().filter(|p| p.joined && dialable(p) && !p.secret.is_empty()).collect()
     }
 
-    fn is_discovered(&self, node: &str) -> bool {
-        self.discovered.lock().unwrap().iter().any(|r| r["node_id"] == node)
+    /// The hub that reported `node`, if we only know it through a hub.
+    fn hub_of(&self, node: &str) -> Option<PeerRecord> {
+        let via = self.discovered.lock().unwrap().iter().find(|r| r["node_id"] == node)?["via"].as_str()?.to_string();
+        self.hubs().into_iter().find(|h| h.node_id == via)
     }
 
     /// Ask every admin hub which nodes it knows and remember the ones we do not pair with.
@@ -80,15 +90,22 @@ impl Peers {
         let Ok(k) = self.kernel() else { return };
         let mut known: std::collections::HashSet<String> = self.peers().into_iter().map(|p| p.node_id).collect();
         known.insert(k.node_id.clone());
-        let mut found = Vec::new();
+        let mut found: Vec<Value> = Vec::new();
+        let mut clash = std::collections::HashSet::new();
         for hub in self.hubs() {
             let Ok(Value::Array(rows)) = self.client(&hub, &k, Some(PROBE_TIMEOUT)).call("peers.list", json!({}), None, None).await else { continue };
             for r in rows {
                 let id = r["node_id"].as_str().unwrap_or("");
-                if id.is_empty() || r["ghost"] == json!(true) || !known.insert(id.to_string()) { continue; }
-                found.push(json!({"node_id": id, "name": r["name"], "url": r["url"], "kind": r["kind"], "online": r["online"], "last_seen": r["last_seen"], "trusted_admin": false, "discovered": true}));
+                if id.is_empty() || r["ghost"] == json!(true) || r["discovered"] == json!(true) || known.contains(id) { continue; }
+                // the same node reported by two hubs: ambiguous, trust neither
+                if found.iter().any(|f| f["node_id"] == id) {
+                    clash.insert(id.to_string());
+                    continue;
+                }
+                found.push(json!({"node_id": id, "name": r["name"], "url": r["url"], "kind": r["kind"], "online": r["online"], "last_seen": r["last_seen"], "trusted_admin": false, "discovered": true, "via": hub.node_id}));
             }
         }
+        found.retain(|f| !clash.contains(f["node_id"].as_str().unwrap_or("")));
         *self.discovered.lock().unwrap() = found;
     }
 
@@ -158,9 +175,9 @@ impl Authenticator for Peers {
 
 #[async_trait]
 impl Router for Peers {
-    async fn call(&self, node: &str, capability: &str, args: Value) -> Result<Value> {
+    async fn call(&self, node: &str, capability: &str, args: Value, via_hub: bool) -> Result<Value> {
         let k = self.kernel()?;
-        let direct = match self.resolve(node) {
+        let err = match self.resolve(node) {
             Ok(peer) => {
                 let out = self.client(&peer, &k, None).call(capability, args, None, None).await;
                 if out.is_ok() {
@@ -168,21 +185,16 @@ impl Router for Peers {
                 }
                 return out;
             }
-            Err(e) if self.is_discovered(node) => e,
-            Err(e) => return Err(e),
+            Err(e) => e,
         };
-        // a node we only know through an admin hub: the hub forwards the call
-        let mut last = direct;
-        for hub in self.hubs() {
-            match self.client(&hub, &k, None).call(capability, args.clone(), Some(node), None).await {
-                Ok(v) => {
-                    self.touch(&hub.node_id);
-                    return Ok(v);
-                }
-                Err(e) => last = e,
-            }
+        // a node we only know through one hub: that hub forwards the call, once (no retry elsewhere)
+        let hub = via_hub.then(|| self.hub_of(node)).flatten();
+        let Some(hub) = hub else { return Err(err) };
+        let out = self.client(&hub, &k, None).call(capability, args, Some(node), None).await;
+        if out.is_ok() {
+            self.touch(&hub.node_id);
         }
-        Err(last)
+        out
     }
 
     async fn remote_catalog(&self) -> Vec<Value> {
@@ -203,20 +215,20 @@ impl Router for Peers {
         join_all(futs).await.into_iter().flatten().collect()
     }
 
-    async fn remote_capabilities(&self, node: &str) -> Result<Vec<Value>> {
+    async fn remote_capabilities(&self, node: &str, via_hub: bool) -> Result<Vec<Value>> {
         let k = self.kernel()?;
         let peer = match self.resolve(node) {
             Ok(p) => p,
-            Err(e) if !self.is_discovered(node) => return Err(e),
-            Err(_) => {
-                // known only through an admin hub: ask the hub for the target's catalog
-                for hub in self.hubs() {
-                    if let Ok(Value::Array(a)) = self.client(&hub, &k, Some(PROBE_TIMEOUT)).call("core.capabilities", json!({}), Some(node), None).await {
+            Err(e) => {
+                let Some(hub) = via_hub.then(|| self.hub_of(node)).flatten() else { return Err(e) };
+                // known only through its hub: ask the hub for the target's catalog
+                return match self.client(&hub, &k, Some(PROBE_TIMEOUT)).call("core.capabilities", json!({}), Some(node), None).await {
+                    Ok(Value::Array(a)) => {
                         self.touch(&hub.node_id);
-                        return Ok(a);
+                        Ok(a)
                     }
-                }
-                return Err(DeltaError::unavailable(format!("node {node} is unreachable")));
+                    _ => Err(DeltaError::unavailable(format!("node {node} is unreachable"))),
+                };
             }
         };
         match self.client(&peer, &k, Some(PROBE_TIMEOUT)).capabilities("local").await {
@@ -292,7 +304,7 @@ impl Component for Peers {
             tokio::spawn(async move {
                 loop {
                     poller.refresh_discovered().await;
-                    tokio::time::sleep(Duration::from_secs(5)).await;
+                    tokio::time::sleep(Duration::from_secs(30)).await;
                 }
             });
             let router: Arc<dyn Router> = me.clone();
@@ -320,8 +332,8 @@ impl Component for Peers {
                 let configured = self.config.read(|c| c.url.clone());
                 let url = args.get("url").and_then(Value::as_str).map(str::trim).filter(|s| !s.is_empty()).unwrap_or(configured.as_str()).to_string();
                 let parsed = reqwest::Url::parse(&url).map_err(|_| DeltaError::bad_request("invitation endpoint is not a URL"))?;
-                if !["http", "https"].contains(&parsed.scheme()) || parsed.host_str().unwrap_or("").is_empty() {
-                    return Err(DeltaError::bad_request("invitation endpoint must be http or https with a host"));
+                if !["http", "https"].contains(&parsed.scheme()) || parsed.host_str().unwrap_or("").is_empty() || !parsed.username().is_empty() || parsed.password().is_some() || parsed.query().is_some() || parsed.fragment().is_some() {
+                    return Err(DeltaError::bad_request("invitation endpoint must be http or https with a host and no credentials, query or fragment"));
                 }
                 let allow_local = args.get("allow_local").and_then(Value::as_bool).unwrap_or(false);
                 if is_unreachable_invite(&parsed) && !allow_local {
@@ -375,7 +387,12 @@ impl Component for Peers {
                     secret: secret.clone(),
                     scopes: if trust_admin { vec!["admin".into()] } else { vec!["call:*".into()] },
                     added: now(),
+                    // re-pairing the other way round must not forget that we joined it before
+                    joined: self.peers().iter().any(|p| p.node_id == node_id && p.joined),
                 });
+                if let Some(me) = self.me.upgrade() {
+                    tokio::spawn(async move { me.refresh_discovered().await });
+                }
                 Ok(json!({
                     "node_id": k.node_id, "name": k.name,
                     "url": self.config.read(|c| c.url.clone()), "secret": secret,
@@ -412,6 +429,7 @@ impl Component for Peers {
                     secret: field("secret"),
                     scopes: if args["trust_admin"].as_bool()==Some(true) { vec!["admin".into()] } else { vec!["call:*".into()] },
                     added: now(),
+                    joined: true,
                 };
                 let out = json!({"node_id": rec.node_id, "name": rec.name, "url": url});
                 self.upsert(rec);
@@ -458,8 +476,9 @@ impl Component for Peers {
                     // epoch seconds of the last successful contact since this node started; null = none yet
                     out["last_seen"] = self.seen.lock().unwrap().get(&id).map(|t| json!(t)).unwrap_or(Value::Null);
                 }
-                // admins also see nodes that only our hubs know; their state is as the hub reported it
-                if ctx.principal.is_admin() {
+                // local admins also see nodes that only our hubs know (state as the hub reported it);
+                // a peer only gets our direct peers, so a forwarded listing never chains further
+                if ctx.principal.is_admin() && ctx.principal.kind != Kind::Peer {
                     let caller = ctx.principal.peer_id.clone();
                     let mut ids: std::collections::HashSet<String> = rows.iter().filter_map(|r| r["node_id"].as_str().map(String::from)).collect();
                     ids.insert(k.node_id.clone());

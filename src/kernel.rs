@@ -84,10 +84,12 @@ pub trait Component: Send + Sync {
 /// Installed by the peers component: forwards calls to other nodes.
 #[async_trait]
 pub trait Router: Send + Sync {
-    async fn call(&self, node: &str, capability: &str, args: Value) -> Result<Value>;
+    /// `via_hub`: may route through an admin hub to a node we do not pair with. False for calls that
+    /// already came from a peer, so a forwarded call never travels more than two hops.
+    async fn call(&self, node: &str, capability: &str, args: Value, via_hub: bool) -> Result<Value>;
     async fn remote_catalog(&self) -> Vec<Value>;
     /// Capability list of one peer only (resolved by id or name); `unavailable` if it does not answer.
-    async fn remote_capabilities(&self, node: &str) -> Result<Vec<Value>>;
+    async fn remote_capabilities(&self, node: &str, via_hub: bool) -> Result<Vec<Value>>;
     fn secret_for(&self, peer_id: &str) -> Option<String>;
 }
 
@@ -526,12 +528,13 @@ impl Kernel {
             // local authorization first; the remote node authorizes us again as a peer
             // only the target's own catalog is consulted (one slow peer must not delay calls to others);
             // fail-closed: a capability missing from the answer is treated as admin-only
-            let caps = router.remote_capabilities(node).await?;
+            let via_hub = principal.kind != Kind::Peer;
+            let caps = router.remote_capabilities(node, via_hub).await?;
             let admin_only = caps.iter().find(|v| v["name"] == capability).and_then(|v| v["admin"].as_bool()).unwrap_or(true);
             if !principal.can_call(capability, admin_only, false) {
                 return Err(DeltaError::forbidden(format!("not allowed to call {capability}")));
             }
-            return router.call(node, capability, args).await;
+            return router.call(node, capability, args, via_hub).await;
         }
         let Some((comp, meta)) = self.find(capability) else {
             return Err(DeltaError::not_found(format!("capability {capability} not found on {}", self.name)));

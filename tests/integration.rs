@@ -157,6 +157,9 @@ async fn invite_refuses_loopback_and_mints_a_phone_link() {
 #[tokio::test]
 async fn invite_refuses_port_zero_unless_allow_local() {
     let n = TestNode::new("zero-hub").await;
+    for url in ["http://[::ffff:127.0.0.1]:7700", "http://u:p@hub.example", "http://hub.example/?x=1", "http://hub.example/#f", "http://app.localhost:7700"] {
+        assert_eq!(code_of(n.admin.call("peers.invite", json!({"url": url}), None, None).await).await, "bad_request", "{url}");
+    }
     for url in ["http://127.0.0.1:0", "http://hub.example:0"] {
         assert_eq!(code_of(n.admin.call("peers.invite", json!({"url": url}), None, None).await).await, "bad_request", "{url}");
         let ok = n.admin.call("peers.invite", json!({"url": url, "allow_local": true}), None, None).await.unwrap();
@@ -260,6 +263,68 @@ async fn hub_without_admin_trust_hides_its_nodes_from_the_phone() {
     hub.close().await;
     vps.close().await;
     phone.close().await;
+}
+
+async fn pair(host: &TestNode, guest: &TestNode, host_trusts_guest: bool, guest_trusts_host: bool) {
+    let inv = host.admin.call("peers.invite", json!({"allow_local": true, "trust_admin": host_trusts_guest}), None, None).await.unwrap();
+    guest.admin.call("peers.join", json!({"url": host.url, "code": inv["code"], "local_url": guest.url, "trust_admin": guest_trusts_host}), None, None).await.unwrap();
+}
+
+async fn node_id(n: &TestNode) -> String {
+    n.admin.call("core.info", json!({}), None, None).await.unwrap()["node_id"].as_str().unwrap().to_string()
+}
+
+async fn has_row(n: &TestNode, id: &str) -> bool {
+    n.admin.call("peers.list", json!({}), None, None).await.unwrap().as_array().unwrap().iter().any(|r| r["node_id"] == id)
+}
+
+#[tokio::test]
+async fn mutual_admin_hubs_do_not_loop_and_stale_rows_disappear() {
+    let a = TestNode::new("loop-a").await;
+    let b = TestNode::new("loop-b").await;
+    let x = TestNode::new("loop-x").await;
+    let y = TestNode::new("loop-y").await;
+    let z = TestNode::new("loop-z").await;
+    let x_id = node_id(&x).await;
+    pair(&b, &x, true, true).await; // X is a direct peer of B
+    pair(&b, &a, true, true).await; // A joined B
+    pair(&a, &b, true, true).await; // B joined A: mutual admin hubs
+    pair(&y, &a, false, false).await; // A joins once more, after B holds A's final secret: A refreshes
+    for _ in 0..100 {
+        if has_row(&a, &x_id).await { break; }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    assert!(has_row(&a, &x_id).await, "A learns X through B");
+    // A's listing for B must not contain B's own discovered rows (no chaining)
+    assert!(!has_row(&b, &x_id).await || b.node.config.read(|c| c.peers.iter().any(|p| p.node_id == x_id)));
+
+    b.admin.call("peers.remove", json!({"node": x_id}), None, None).await.unwrap();
+    let started = std::time::Instant::now();
+    let code = code_of(a.admin.call("system.ping", json!({}), Some(&x_id), None).await).await;
+    assert!(["not_found", "unavailable"].contains(&code.as_str()), "{code}");
+    assert!(started.elapsed() < Duration::from_secs(10), "call must not bounce between hubs");
+
+    pair(&a, &z, false, false).await; // a new peer makes A refresh
+    for _ in 0..150 {
+        if !has_row(&a, &x_id).await { break; }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    assert!(!has_row(&a, &x_id).await && !has_row(&b, &x_id).await);
+    for n in [a, b, x, y, z] { n.close().await; }
+}
+
+#[tokio::test]
+async fn only_nodes_we_joined_can_publish_discovered_rows() {
+    let c = TestNode::new("trust-c").await;
+    let e = TestNode::new("trust-e").await;
+    let v = TestNode::new("trust-v").await;
+    let v_id = node_id(&v).await;
+    pair(&e, &v, true, true).await; // V is E's peer
+    pair(&c, &e, true, false).await; // E joined C: C never joined E, so E is no hub of C
+    tokio::time::sleep(Duration::from_millis(700)).await;
+    assert!(!has_row(&c, &v_id).await, "a row from a peer we did not join must be ignored");
+    assert_eq!(code_of(c.admin.call("system.ping", json!({}), Some(&v_id), None).await).await, "not_found");
+    for n in [c, e, v] { n.close().await; }
 }
 
 #[tokio::test]
@@ -648,7 +713,7 @@ async fn port_zero_client_joins_outbound_only_and_last_contact_is_reported() {
 async fn prune_only_forgets_port_zero_registrations_and_only_when_asked() {
     use delta::config::PeerRecord;
     let hub = TestNode::new("prune-hub").await;
-    let mk = |id: &str, url: &str| PeerRecord { node_id: id.into(), name: "Delta".into(), url: url.into(), secret: "s".into(), scopes: vec![], added: 0.0 };
+    let mk = |id: &str, url: &str| PeerRecord { node_id: id.into(), name: "Delta".into(), url: url.into(), secret: "s".into(), scopes: vec![], added: 0.0, joined: false };
     hub.node.config.update(|c| {
         c.peers.push(mk("ghost1", "http://127.0.0.1:0"));
         c.peers.push(mk("phone", "")); // legitimate outbound-only client
