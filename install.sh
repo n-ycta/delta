@@ -1,7 +1,7 @@
 #!/bin/sh
 # Delta official installer. Download, inspect, then execute if you prefer not to pipe a script.
 set -eu
-DELTA_VERSION=${DELTA_VERSION:-v0.4.4}
+DELTA_VERSION=${DELTA_VERSION:-v0.4.5}
 NODE_VERSION=v24.14.1
 HOME_DIR=${DELTA_HOME:-"$HOME/.delta"}
 export DELTA_HOME="$HOME_DIR"

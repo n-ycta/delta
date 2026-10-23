@@ -5,7 +5,7 @@ param(
 )
 $ErrorActionPreference='Stop'
 if ($env:PROCESSOR_ARCHITECTURE -ne 'AMD64') { throw 'Windows x64 is required.' }
-$version=if($env:DELTA_VERSION){$env:DELTA_VERSION}else{'v0.4.4'}
+$version=if($env:DELTA_VERSION){$env:DELTA_VERSION}else{'v0.4.5'}
 $homeDir=if($env:DELTA_HOME){$env:DELTA_HOME}else{Join-Path $env:LOCALAPPDATA 'Delta'}
 $env:DELTA_HOME=$homeDir
 if($Choose){$choice=Read-Host 'Install [1] node + web, [2] node + web + typing, [3] bare node';$Plugins=switch($choice){'2'{'storage,web,typing'}'3'{'none'}default{'storage,web'}};$Choose=$false}

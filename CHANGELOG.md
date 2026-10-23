@@ -1,17 +1,29 @@
 # Changelog
 
-### Maintenance fixes
-
-- Publish Storage 0.4.2, Type 0.4.5, Updater 0.1.2 and LifeOS 0.3.1 verified releases.
-- Add repair.sh for updates without Updater, private backups, readiness checks and scoped cross-owner Vector migration. External PostgreSQL is never replaced with an empty fallback.
-
 ## [v0.4.5]
 
-- Replace the Vector installer entry with checksum-verified Delta LifeOS 0.3.1 (lifeos component).
-
+### Features
+- Replace the Vector installer entry with checksum-verified Delta LifeOS (lifeos component).
 - Add platform-owned encrypted profile codecs for native hosts.
 - Add private, bounded native UI document persistence and managed manifest discovery.
+- An admin phone now sees the same nodes as its hub: hub-discovered nodes are listed and calls are forwarded through the hub (at most 2 hops, joined hubs only).
+- `peers.invite` returns a `delta://pair` `link` and a `public_url`, and refuses an address reachable only from this machine (loopback, port 0, userinfo/query/fragment) unless `allow_local` is set.
+- Outbound-only peers (port 0) are supported; `peers.list` reports `last_seen`; stale peers are removed only by an explicit `peers.prune`.
+- Add repair.sh for updates without Updater, private backups, readiness checks and scoped cross-owner Vector migration. External PostgreSQL is never replaced with an empty fallback.
+- Share one pooled HTTP client per process.
 
+### Security
+- `exec.run` is admin-only.
+- Peer principals are named `peer:<node_id>`.
+- Login challenges are limited per key.
+- The bearer token is no longer sent to a peer when the request is signed.
+
+### Behaviour changes
+- `peers.list` returns `[]` for a non-admin peer.
+
+### Fixes
+- The supervisor signals the whole process group on stop.
+- Fix a host-runtime profile race on first start (the profile lease is taken before the profile is created).
 
 ## [v0.4.4]
 
