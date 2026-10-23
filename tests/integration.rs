@@ -18,8 +18,14 @@ struct TestNode {
 
 impl TestNode {
     async fn new(name: &str) -> TestNode {
+        Self::with_config(name, |_| {}).await
+    }
+
+    async fn with_config(name: &str, tweak: impl FnOnce(&mut delta::config::ConfigData)) -> TestNode {
         let home = std::env::temp_dir().join(format!("delta-{name}-{}", random_hex(4)));
-        let cfg = Arc::new(Config::new(home.clone(), default_config(name, "127.0.0.1", 0, "")));
+        let mut data = default_config(name, "127.0.0.1", 0, "");
+        tweak(&mut data);
+        let cfg = Arc::new(Config::new(home.clone(), data));
         cfg.save().unwrap();
         let (admin_token, _) = TokenStore::new(cfg.clone()).create("admin", &["admin".to_string()], true).unwrap();
         let node = Node::start(cfg.clone(), Some(0)).await.unwrap();
@@ -119,8 +125,12 @@ async fn two_nodes_pair_and_route_calls() {
     assert_eq!(r["echo"], "hi");
     assert_eq!(r["node"], "node-a");
     // and the other way round
-    let r = a.admin.call("system.ping", json!({"echo": "yo"}), Some("node-b"), None).await.unwrap();
+    // A knows B only by id: the name B announced when joining is never trusted
+    let b_id = b.admin.call("core.info", json!({}), None, None).await.unwrap()["node_id"].as_str().unwrap().to_string();
+    let r = a.admin.call("system.ping", json!({"echo": "yo"}), Some(&b_id), None).await.unwrap();
     assert_eq!(r["node"], "node-b");
+    let peers = a.admin.call("peers.list", json!({}), None, None).await.unwrap();
+    assert_eq!(peers[0]["name"], format!("peer:{b_id}"));
 
     // an invite code is single-use
     let again = b.admin.call("peers.join", json!({"url": a.url, "code": inv["code"]}), None, None).await;
@@ -261,6 +271,8 @@ async fn adding_disabled_component_does_not_start_it() {
 async fn explicit_peer_trust_is_directional_revocable_and_single_use() {
     let a = TestNode::new("trust-a").await;
     let b = TestNode::new("trust-b").await;
+    // the inviting side records the joiner as `peer:<node_id>`, so it addresses it by id
+    let b_id = b.admin.call("core.info", json!({}), None, None).await.unwrap()["node_id"].as_str().unwrap().to_string();
     let inv = a.admin.call("peers.invite", json!({"trust_admin":true}), None, None).await.unwrap();
     b.admin.call("peers.join", json!({"url":a.url,"code":inv["code"],"trust_admin":true,"local_url":b.url}), None, None).await.unwrap();
     assert!(a.admin.call("peers.list",json!({}),None,None).await.unwrap()[0]["trusted_admin"].as_bool().unwrap());
@@ -268,15 +280,15 @@ async fn explicit_peer_trust_is_directional_revocable_and_single_use() {
     b.admin.call("supervisor.list",json!({}),Some("trust-a"),None).await.unwrap();
     // tokens.list is admin-only, and both directions were explicitly approved.
     b.admin.call("tokens.list",json!({}),Some("trust-a"),None).await.unwrap();
-    a.admin.call("tokens.list",json!({}),Some("trust-b"),None).await.unwrap();
-    a.admin.call("peers.trust",json!({"node":"trust-b","admin":false}),None,None).await.unwrap();
+    a.admin.call("tokens.list",json!({}),Some(&b_id),None).await.unwrap();
+    a.admin.call("peers.trust",json!({"node":b_id,"admin":false}),None,None).await.unwrap();
     assert_eq!(code_of(b.admin.call("tokens.list",json!({}),Some("trust-a"),None).await).await,"forbidden");
-    a.admin.call("tokens.list",json!({}),Some("trust-b"),None).await.unwrap();
+    a.admin.call("tokens.list",json!({}),Some(&b_id),None).await.unwrap();
     assert_eq!(code_of(b.admin.call("peers.join",json!({"url":a.url,"code":inv["code"]}),None,None).await).await,"forbidden");
     let narrow=a.admin.call("tokens.create",json!({"name":"pairing-only","scopes":["admin:peers.invite","admin:peers.join","admin:peers.trust"]}),None,None).await.unwrap();
     let restricted=a.client(narrow["token"].as_str());
     assert_eq!(code_of(restricted.call("peers.invite",json!({"trust_admin":true}),None,None).await).await,"forbidden");
-    assert_eq!(code_of(restricted.call("peers.trust",json!({"node":"trust-b","admin":true}),None,None).await).await,"forbidden");
+    assert_eq!(code_of(restricted.call("peers.trust",json!({"node":b_id,"admin":true}),None,None).await).await,"forbidden");
     a.close().await;b.close().await;
 }
 
@@ -361,4 +373,42 @@ async fn replaceable_providers_require_explicit_binding_and_protect_enabled_cons
  let again=n.admin.call("dependencies.status",json!({"id":"reader"}),None,None).await.unwrap();assert_eq!(again["dependencies"][0]["component"],"store_b");
  let key=n.admin.call("tokens.create",json!({"name":"not-owner","scopes":["call:dependencies.*"]}),None,None).await.unwrap();assert_eq!(code_of(n.client(key["token"].as_str()).call("dependencies.bind",json!({"id":"reader","dependency":"records","component":"store_a"}),None,None).await).await,"forbidden");
  n.close().await;
+}
+
+#[tokio::test]
+async fn exec_run_requires_admin() {
+    let n = TestNode::with_config("exec", |c| {
+        c.builtin.exec = true;
+        c.exec.allow = vec!["echo".into()];
+    })
+    .await;
+    let all = n.admin.call("tokens.create", json!({"name": "all", "scopes": ["call:*"]}), None, None).await.unwrap();
+    let all = n.client(all["token"].as_str());
+    let args = json!({"command": ["echo", "hi"]});
+    assert_eq!(code_of(all.call("exec.run", args.clone(), None, None).await).await, "forbidden");
+    // read-only listing stays available to call:* tokens
+    assert!(all.call("exec.allowed", json!({}), None, None).await.is_ok());
+    let r = n.admin.call("exec.run", args, None, None).await.unwrap();
+    assert_eq!(r["code"], 0);
+    n.close().await;
+}
+
+#[tokio::test]
+async fn challenge_limit_is_per_key() {
+    use k256::schnorr::SigningKey;
+    let n = TestNode::new("challenge-limit").await;
+    let pk = |seed: u8| hex::encode(SigningKey::from_bytes(&[seed; 32]).unwrap().verifying_key().to_bytes());
+    let public = n.client(None);
+    let ask = |k: String| {
+        let public = public.clone();
+        async move { public.call("identity.challenge", json!({"public_key": k, "audience": "http://localhost:7710"}), None, None).await }
+    };
+    let mut last = "ok".to_string();
+    for _ in 0..20 {
+        last = code_of(ask(pk(1)).await).await;
+    }
+    assert_eq!(last, "unavailable", "one key must hit its own limit");
+    // a different key is not locked out by the first one
+    assert!(ask(pk(2)).await.is_ok());
+    n.close().await;
 }

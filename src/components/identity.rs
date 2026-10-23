@@ -1,6 +1,7 @@
 //! Schnorr/BIP340 challenge authentication. Private keys and seed phrases never reach the core.
 use crate::{config::IdentityKey,errors::{DeltaError,Result},kernel::{cap,CallContext,CapSpec,Component},util::{now,random_hex}};
 use async_trait::async_trait;use serde_json::{json,Value};use std::{collections::HashMap,sync::Mutex};use sha2::{Digest,Sha256};use k256::schnorr::{Signature,VerifyingKey};
+const MAX_CHALLENGES_PER_KEY:usize=8;
 struct Challenge { public_key:String, audience:String, text:String, expires:f64, remember:bool }
 pub struct Identity { challenges:Mutex<HashMap<String,Challenge>> }
 impl Identity { pub fn new()->Self{Self{challenges:Mutex::new(HashMap::new())}} }
@@ -19,7 +20,7 @@ fn public_key(text:&str)->Result<VerifyingKey>{let bytes=hex::decode(text).map_e
   match capability {
    "identity.challenge"=>{let pk=s("public_key").to_lowercase();public_key(&pk)?;let audience=s("audience");if !ctx.kernel.config.read(|c|c.identity_origins.contains(&audience)){return Err(DeltaError::forbidden("origin is not configured for key login"))}
     let remember=args["remember"].as_bool().unwrap_or(false);let nonce=random_hex(32);let expires=(now()+90.0).floor();let mut text=format!("delta-login-v1\n{}\n{pk}\n{nonce}\n{}\n{audience}",ctx.kernel.node_id,expires as u64);if remember{text.push_str("\nremember:2592000");}
-    let mut challenges=self.challenges.lock().unwrap();challenges.retain(|_,c|c.expires>now());if challenges.len()>=1024{return Err(DeltaError::unavailable("too many outstanding challenges"))}
+    let mut challenges=self.challenges.lock().unwrap();challenges.retain(|_,c|c.expires>now());if challenges.len()>=1024{return Err(DeltaError::unavailable("too many outstanding challenges"))}if challenges.values().filter(|c|c.public_key==pk).count()>=MAX_CHALLENGES_PER_KEY{return Err(DeltaError::unavailable("too many outstanding challenges for this key"))}
     challenges.insert(nonce.clone(),Challenge{public_key:pk.clone(),audience:audience.clone(),text:text.clone(),expires,remember});Ok(json!({"nonce":nonce,"message":text,"node_id":ctx.kernel.node_id,"public_key":pk,"audience":audience,"expires_at":expires,"remember":remember}))
    }
    "identity.login"=>{let challenge=self.challenges.lock().unwrap().remove(&s("nonce")).ok_or_else(||DeltaError::unauthorized("invalid or consumed challenge"))?;if challenge.expires<now(){return Err(DeltaError::unauthorized("challenge expired"))}
