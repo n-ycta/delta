@@ -125,12 +125,12 @@ async fn two_nodes_pair_and_route_calls() {
     assert_eq!(r["echo"], "hi");
     assert_eq!(r["node"], "node-a");
     // and the other way round
-    // A knows B only by id: the name B announced when joining is never trusted
+    // routing by node_id works too; the announced name is only a display label
     let b_id = b.admin.call("core.info", json!({}), None, None).await.unwrap()["node_id"].as_str().unwrap().to_string();
     let r = a.admin.call("system.ping", json!({"echo": "yo"}), Some(&b_id), None).await.unwrap();
     assert_eq!(r["node"], "node-b");
     let peers = a.admin.call("peers.list", json!({}), None, None).await.unwrap();
-    assert_eq!(peers[0]["name"], format!("peer:{b_id}"));
+    assert_eq!(peers[0]["name"], "node-b");
 
     // an invite code is single-use
     let again = b.admin.call("peers.join", json!({"url": a.url, "code": inv["code"]}), None, None).await;
@@ -271,7 +271,6 @@ async fn adding_disabled_component_does_not_start_it() {
 async fn explicit_peer_trust_is_directional_revocable_and_single_use() {
     let a = TestNode::new("trust-a").await;
     let b = TestNode::new("trust-b").await;
-    // the inviting side records the joiner as `peer:<node_id>`, so it addresses it by id
     let b_id = b.admin.call("core.info", json!({}), None, None).await.unwrap()["node_id"].as_str().unwrap().to_string();
     let inv = a.admin.call("peers.invite", json!({"trust_admin":true}), None, None).await.unwrap();
     b.admin.call("peers.join", json!({"url":a.url,"code":inv["code"],"trust_admin":true,"local_url":b.url}), None, None).await.unwrap();

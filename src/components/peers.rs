@@ -239,11 +239,11 @@ impl Component for Peers {
                     return Err(DeltaError::bad_request("a node cannot join itself"));
                 }
                 let secret = random_hex(32);
-                // the joiner's self-declared name is never trusted: it could collide with another peer's
-                let node_id = trunc(&node_id, 64);
+                // `name` is only a display label for the UI chosen by the joiner, never an identity:
+                // authorization uses node_id (see the `peer:<node_id>` Principal in `authenticate`).
                 self.upsert(PeerRecord {
-                    name: format!("peer:{node_id}"),
-                    node_id,
+                    node_id: trunc(&node_id, 64),
+                    name: trunc(&sarg("name"), 64),
                     url: trunc(&sarg("url"), 512),
                     secret: secret.clone(),
                     scopes: if trust_admin { vec!["admin".into()] } else { vec!["call:*".into()] },
