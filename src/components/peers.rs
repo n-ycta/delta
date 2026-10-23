@@ -22,12 +22,23 @@ use std::{
 const INVITE_TTL: f64 = 600.0;
 const PROBE_TIMEOUT: Duration = Duration::from_secs(3);
 
+/// Port 0 is what a native client records before it listens: nobody can ever dial that address.
+fn is_ghost_url(url: &str) -> bool {
+    reqwest::Url::parse(url).map(|u| u.port() == Some(0)).unwrap_or(false)
+}
+
+/// A peer we can actually dial (outbound-only peers have an empty url).
+fn dialable(p: &PeerRecord) -> bool {
+    !p.url.is_empty() && !is_ghost_url(&p.url)
+}
+
 pub struct Peers {
     me: Weak<Peers>,
     config: Arc<Config>,
     invites: Mutex<HashMap<String, (f64, bool)>>, // sha256(code) -> (expiry, grant_admin)
     nonces: NonceCache,
     kernel: Mutex<Option<Arc<Kernel>>>,
+    seen: Mutex<HashMap<String, f64>>, // node_id -> last successful contact; memory only, no config fsync
 }
 
 impl Peers {
@@ -38,7 +49,12 @@ impl Peers {
             invites: Mutex::new(HashMap::new()),
             nonces: NonceCache::new(),
             kernel: Mutex::new(None),
+            seen: Mutex::new(HashMap::new()),
         })
+    }
+
+    fn touch(&self, node_id: &str) {
+        self.seen.lock().unwrap().insert(node_id.to_string(), now());
     }
 
     fn kernel(&self) -> Result<Arc<Kernel>> {
@@ -99,6 +115,7 @@ impl Authenticator for Peers {
         if !verify_request(&peer.secret, method, path, headers, body, &self.nonces) {
             return Err(DeltaError::unauthorized("invalid peer signature"));
         }
+        self.touch(&node_id);
         let scopes = if peer.scopes.is_empty() { vec!["call:*".to_string()] } else { peer.scopes.clone() };
         Ok(Some(Principal { kind: Kind::Peer, name: peer.name, scopes, peer_id: node_id.to_string() }))
     }
@@ -109,7 +126,11 @@ impl Router for Peers {
     async fn call(&self, node: &str, capability: &str, args: Value) -> Result<Value> {
         let peer = self.resolve(node)?;
         let k = self.kernel()?;
-        self.client(&peer, &k, None).call(capability, args, None, None).await
+        let out = self.client(&peer, &k, None).call(capability, args, None, None).await;
+        if out.is_ok() {
+            self.touch(&peer.node_id);
+        }
+        out
     }
 
     async fn remote_catalog(&self) -> Vec<Value> {
@@ -118,7 +139,7 @@ impl Router for Peers {
         if peers.is_empty() {
             return vec![];
         }
-        let futs = peers.iter().map(|p| {
+        let futs = peers.iter().filter(|p| dialable(p)).map(|p| {
             let c = self.client(p, &k, Some(PROBE_TIMEOUT));
             async move {
                 match c.capabilities("local").await {
@@ -173,6 +194,13 @@ impl Component for Peers {
                 "peers.remove",
                 "Forget a peer (and tell it to forget us)",
                 json!({"node": s(true)}),
+                true,
+                false,
+            ),
+            cap(
+                "peers.prune",
+                "List (dry_run, default) or forget peers recorded with an undialable port-0 address",
+                json!({"dry_run": {"type":"boolean"}}),
                 true,
                 false,
             ),
@@ -242,7 +270,8 @@ impl Component for Peers {
                 self.upsert(PeerRecord {
                     node_id: trunc(&node_id, 64),
                     name: trunc(&sarg("name"), 64),
-                    url: trunc(&sarg("url"), 512),
+                    // a port-0 address can never be dialled: keep the peer as outbound-only (empty url)
+                    url: Some(trunc(&sarg("url"), 512)).filter(|u| !is_ghost_url(u)).unwrap_or_default(),
                     secret: secret.clone(),
                     scopes: if trust_admin { vec!["admin".into()] } else { vec!["call:*".into()] },
                     added: now(),
@@ -255,9 +284,14 @@ impl Component for Peers {
             "peers.join" => {
                 let url = sarg("url");
                 if args["trust_admin"].as_bool() == Some(true) && !ctx.principal.is_admin() { return Err(DeltaError::forbidden("granting administrative trust requires global admin")); }
-                let advertised = args.get("local_url").and_then(Value::as_str).map(str::to_owned).unwrap_or_else(|| self.config.read(|c| c.url.clone()));
-                let parsed = reqwest::Url::parse(&advertised).map_err(|_| DeltaError::bad_request("invalid local_url"))?;
-                if !["http", "https"].contains(&parsed.scheme()) || parsed.host_str().is_none() || !parsed.username().is_empty() || parsed.password().is_some() || parsed.fragment().is_some() || advertised.len() > 512 { return Err(DeltaError::bad_request("invalid local_url")); }
+                let explicit = args.get("local_url").and_then(Value::as_str).map(str::to_owned);
+                let advertised = explicit.clone().unwrap_or_else(|| self.config.read(|c| c.url.clone()));
+                // a node without a dialable address (native clients listen on port 0) joins outbound-only
+                let advertised = if explicit.is_none() && (advertised.is_empty() || is_ghost_url(&advertised)) { String::new() } else { advertised };
+                if !advertised.is_empty() {
+                    let parsed = reqwest::Url::parse(&advertised).map_err(|_| DeltaError::bad_request("invalid local_url"))?;
+                    if !["http", "https"].contains(&parsed.scheme()) || parsed.host_str().is_none() || !parsed.username().is_empty() || parsed.password().is_some() || parsed.fragment().is_some() || advertised.len() > 512 || parsed.port() == Some(0) { return Err(DeltaError::bad_request("invalid local_url")); }
+                }
                 let res = Client::new(&url, None)
                     .with_timeout(Duration::from_secs(10))
                     .call(
@@ -290,6 +324,12 @@ impl Component for Peers {
                     let p = p.clone();
                     async move {
                         let mut out = json!({"node_id": p.node_id, "name": p.name, "url": p.url, "trusted_admin": p.scopes.iter().any(|s| s == "admin"), "online": false});
+                        if !dialable(&p) {
+                            // nothing to probe: either an outbound-only client or a legacy port-0 registration
+                            out["outbound_only"] = json!(p.url.is_empty());
+                            out["ghost"] = json!(is_ghost_url(&p.url));
+                            return out;
+                        }
                         match c.call("core.info", json!({}), None, None).await {
                             Ok(info) => {
                                 out["online"] = json!(true);
@@ -302,7 +342,31 @@ impl Component for Peers {
                         out
                     }
                 });
-                Ok(Value::Array(join_all(futs).await))
+                let mut rows = join_all(futs).await;
+                for out in rows.iter_mut() {
+                    let id = out["node_id"].as_str().unwrap_or("").to_string();
+                    if out["online"] == json!(true) {
+                        self.touch(&id);
+                    }
+                    // epoch seconds of the last successful contact since this node started; null = none yet
+                    out["last_seen"] = self.seen.lock().unwrap().get(&id).map(|t| json!(t)).unwrap_or(Value::Null);
+                }
+                Ok(Value::Array(rows))
+            }
+            "peers.prune" => {
+                // explicit only: never runs on its own and only touches registrations that can never connect
+                let dry_run = args.get("dry_run").and_then(Value::as_bool).unwrap_or(true);
+                let ghosts: Vec<PeerRecord> = self.peers().into_iter().filter(|p| is_ghost_url(&p.url)).collect();
+                let candidates: Vec<Value> = ghosts.iter().map(|p| json!({"node_id": p.node_id, "name": p.name, "url": p.url})).collect();
+                let mut removed = vec![];
+                if !dry_run {
+                    for p in &ghosts {
+                        if self.delete(&p.node_id) {
+                            removed.push(p.node_id.clone());
+                        }
+                    }
+                }
+                Ok(json!({"dry_run": dry_run, "candidates": candidates, "removed": removed}))
             }
             "peers.remove" => {
                 let peer = self.resolve(&sarg("node"))?;

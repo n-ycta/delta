@@ -362,3 +362,64 @@ async fn replaceable_providers_require_explicit_binding_and_protect_enabled_cons
  let key=n.admin.call("tokens.create",json!({"name":"not-owner","scopes":["call:dependencies.*"]}),None,None).await.unwrap();assert_eq!(code_of(n.client(key["token"].as_str()).call("dependencies.bind",json!({"id":"reader","dependency":"records","component":"store_a"}),None,None).await).await,"forbidden");
  n.close().await;
 }
+
+#[tokio::test]
+async fn port_zero_client_joins_outbound_only_and_last_contact_is_reported() {
+    let hub = TestNode::new("ghost-hub").await;
+    let client = TestNode::new("ghost-client").await;
+    // what a native client has configured before it listens
+    client.node.config.update(|c| c.url = "http://127.0.0.1:0".into());
+    let inv = hub.admin.call("peers.invite", json!({}), None, None).await.unwrap();
+    client.admin.call("peers.join", json!({"url": hub.url, "code": inv["code"]}), None, None).await.unwrap();
+
+    let started = std::time::Instant::now();
+    let row = hub.admin.call("peers.list", json!({}), None, None).await.unwrap()[0].clone();
+    assert!(started.elapsed() < Duration::from_secs(1), "nothing should be probed for an outbound-only peer");
+    assert_eq!(row["url"], "");
+    assert_eq!(row["outbound_only"], true);
+    assert_eq!(row["online"], false);
+    assert!(row["last_seen"].is_null(), "never contacted yet");
+    assert_eq!(code_of(hub.admin.call("system.ping", json!({}), Some("ghost-client"), None).await).await, "unavailable");
+
+    // the client reaches the hub through the signed channel, which counts as contact
+    client.admin.call("system.ping", json!({}), Some("ghost-hub"), None).await.unwrap();
+    let row = hub.admin.call("peers.list", json!({}), None, None).await.unwrap()[0].clone();
+    let seen = row["last_seen"].as_f64().expect("last_seen after a signed request");
+    assert!((delta::util::now() - seen).abs() < 30.0);
+
+    // an explicitly advertised port-0 address is refused
+    let inv = hub.admin.call("peers.invite", json!({}), None, None).await.unwrap();
+    let bad = client.admin.call("peers.join", json!({"url": hub.url, "code": inv["code"], "local_url": "http://127.0.0.1:0"}), None, None).await;
+    assert_eq!(code_of(bad).await, "bad_request");
+    hub.close().await;
+    client.close().await;
+}
+
+#[tokio::test]
+async fn prune_only_forgets_port_zero_registrations_and_only_when_asked() {
+    use delta::config::PeerRecord;
+    let hub = TestNode::new("prune-hub").await;
+    let mk = |id: &str, url: &str| PeerRecord { node_id: id.into(), name: "Delta".into(), url: url.into(), secret: "s".into(), scopes: vec![], added: 0.0 };
+    hub.node.config.update(|c| {
+        c.peers.push(mk("ghost1", "http://127.0.0.1:0"));
+        c.peers.push(mk("phone", "")); // legitimate outbound-only client
+        c.peers.push(mk("lan", "http://192.0.2.1:7710"));
+    });
+    let listed = hub.admin.call("peers.list", json!({}), None, None).await.unwrap();
+    let ghost = listed.as_array().unwrap().iter().find(|p| p["node_id"] == "ghost1").unwrap();
+    assert_eq!(ghost["ghost"], true);
+
+    let dry = hub.admin.call("peers.prune", json!({}), None, None).await.unwrap();
+    assert_eq!(dry["dry_run"], true);
+    assert_eq!(dry["candidates"].as_array().unwrap().len(), 1);
+    assert_eq!(hub.node.config.read(|c| c.peers.len()), 3, "dry run must not delete");
+
+    let t = hub.admin.call("tokens.create", json!({"name": "all", "scopes": ["call:*"]}), None, None).await.unwrap();
+    assert_eq!(code_of(hub.client(t["token"].as_str()).call("peers.prune", json!({"dry_run": false}), None, None).await).await, "forbidden");
+
+    let done = hub.admin.call("peers.prune", json!({"dry_run": false}), None, None).await.unwrap();
+    assert_eq!(done["removed"], json!(["ghost1"]));
+    let left: Vec<String> = hub.node.config.read(|c| c.peers.iter().map(|p| p.node_id.clone()).collect());
+    assert_eq!(left, vec!["phone", "lan"]);
+    hub.close().await;
+}
