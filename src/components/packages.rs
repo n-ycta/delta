@@ -24,6 +24,9 @@ fn checked_item(item:&Value,args:&Value)->Result<()> {
  if args.get("expectedVersion").and_then(Value::as_str).map(|v|item["version"]!=v).unwrap_or(false)||args.get("expectedSha256").and_then(Value::as_str).map(|v|item["sha256"]!=v).unwrap_or(false){return Err(DeltaError::conflict("The official catalog changed; check for updates again"))} Ok(())
 }
 async fn catalog()->Result<Value>{serde_json::from_slice(&download(INDEX,2_000_000).await?).map_err(|_|DeltaError::bad_request("Invalid plugin index"))}
+/// Unpacks a release archive into `stage`: regular files and directories only, bounded size and entry count,
+/// and never outside `stage`.
+fn unpack_archive(bytes:&[u8],s:&std::path::Path)->std::io::Result<()>{let mut archive=tar::Archive::new(flate2::read::GzDecoder::new(bytes));let mut total=0u64;let mut entries=0;for e in archive.entries()?{entries+=1;if entries>50000{return Err(std::io::Error::other("Too many archive entries"))}let mut e=e?;let t=e.header().entry_type();if !t.is_file()&&!t.is_dir(){return Err(std::io::Error::other("Links and special entries are not allowed"))}total=total.checked_add(e.size()).ok_or_else(||std::io::Error::other("Invalid archive size"))?;if total>150_000_000{return Err(std::io::Error::other("Unpacked package too large"))}if !e.unpack_in(&s)?{return Err(std::io::Error::other("Unsafe package path"))}}Ok(())}
 async fn install(k:Arc<Kernel>,p:Principal,item:Value)->Result<Value>{
  let id=item["component"].as_str().unwrap_or("");if !crate::util::valid_id(id){return Err(DeltaError::bad_request("Invalid package component"))}
  let url=item["asset"].as_str().unwrap_or("");if !url.starts_with("https://github.com/n-ycta/")||!url.contains("/releases/download/"){return Err(DeltaError::forbidden("Untrusted package origin"))}
@@ -32,7 +35,7 @@ async fn install(k:Arc<Kernel>,p:Principal,item:Value)->Result<Value>{
  let root=k.config.home.join("plugins");std::fs::create_dir_all(&root).map_err(|e|DeltaError::unavailable(e.to_string()))?;
  let stage=root.join(format!(".stage-{}",random_hex(8)));std::fs::create_dir(&stage).map_err(|e|DeltaError::unavailable(e.to_string()))?;
  let dest=root.join(format!("{id}-{version}-{}",random_hex(4)));let s=stage.clone();
- let unpack=tokio::task::spawn_blocking(move||->std::io::Result<()>{let mut archive=tar::Archive::new(flate2::read::GzDecoder::new(bytes.as_slice()));let mut total=0u64;let mut entries=0;for e in archive.entries()?{entries+=1;if entries>50000{return Err(std::io::Error::other("Too many archive entries"))}let mut e=e?;let t=e.header().entry_type();if !t.is_file()&&!t.is_dir(){return Err(std::io::Error::other("Links and special entries are not allowed"))}total=total.checked_add(e.size()).ok_or_else(||std::io::Error::other("Invalid archive size"))?;if total>150_000_000{return Err(std::io::Error::other("Unpacked package too large"))}if !e.unpack_in(&s)?{return Err(std::io::Error::other("Unsafe package path"))}}Ok(())}).await.map_err(|e|DeltaError::unavailable(e.to_string()))?;
+ let unpack=tokio::task::spawn_blocking(move||unpack_archive(&bytes,&s)).await.map_err(|e|DeltaError::unavailable(e.to_string()))?;
  if let Err(e)=unpack{let _=std::fs::remove_dir_all(&stage);return Err(DeltaError::bad_request(e.to_string()))}
  let manifest:Value=serde_json::from_slice(&std::fs::read(stage.join("manifest.json")).map_err(|e|DeltaError::bad_request(e.to_string()))?).map_err(|e|DeltaError::bad_request(e.to_string()))?;
  if manifest["id"]!=id||manifest["version"]!=version||manifest["metadata"]["ui"]["id"]!=item["id"]{return Err(DeltaError::forbidden("Manifest does not match release index"))}
@@ -95,6 +98,44 @@ async fn install(k:Arc<Kernel>,p:Principal,item:Value)->Result<Value>{
   assert!(checked_item(&item,&json!({"expectedVersion":"1.2.3","expectedSha256":"abc"})).is_ok());
   assert!(checked_item(&item,&json!({"expectedVersion":"1.2.4"})).is_err());
   assert!(checked_item(&item,&json!({"expectedSha256":"different"})).is_err());
+ }
+ fn targz(build:impl FnOnce(&mut tar::Builder<Vec<u8>>))->Vec<u8>{
+  use std::io::Write;let mut b=tar::Builder::new(Vec::new());build(&mut b);let raw=b.into_inner().unwrap();
+  let mut e=flate2::write::GzEncoder::new(Vec::new(),flate2::Compression::fast());e.write_all(&raw).unwrap();e.finish().unwrap()
+ }
+ /// Writes the name straight into the header, so hostile paths like `../x` survive (Builder would refuse them).
+ fn raw_entry(b:&mut tar::Builder<Vec<u8>>,name:&str,kind:tar::EntryType,link:Option<&str>,data:&[u8]){
+  let mut h=tar::Header::new_gnu();h.as_old_mut().name[..name.len()].copy_from_slice(name.as_bytes());h.set_size(data.len() as u64);h.set_entry_type(kind);h.set_mode(0o644);
+  if let Some(l)=link{h.set_link_name(l).unwrap()}h.set_cksum();b.append(&h,data).unwrap();
+ }
+ fn sandbox()->(std::path::PathBuf,std::path::PathBuf){
+  let base=std::env::temp_dir().join(format!("delta-unpack-{}",random_hex(8)));let stage=base.join("stage");std::fs::create_dir_all(&stage).unwrap();(base,stage)
+ }
+ #[test] fn unpack_accepts_regular_files_and_directories(){
+  let (base,stage)=sandbox();
+  let tgz=targz(|b|{raw_entry(b,"pkg/",tar::EntryType::Directory,None,b"");raw_entry(b,"pkg/manifest.json",tar::EntryType::Regular,None,b"{}")});
+  unpack_archive(&tgz,&stage).unwrap();assert_eq!(std::fs::read(stage.join("pkg/manifest.json")).unwrap(),b"{}");std::fs::remove_dir_all(base).unwrap();
+ }
+ #[test] fn unpack_refuses_path_traversal(){
+  let (base,stage)=sandbox();
+  let tgz=targz(|b|raw_entry(b,"../evil.txt",tar::EntryType::Regular,None,b"x"));
+  assert!(unpack_archive(&tgz,&stage).is_err());assert!(!base.join("evil.txt").exists());
+  let nested=targz(|b|raw_entry(b,"a/../../evil.txt",tar::EntryType::Regular,None,b"x"));
+  assert!(unpack_archive(&nested,&stage).is_err());assert!(!base.join("evil.txt").exists());std::fs::remove_dir_all(base).unwrap();
+ }
+ #[test] fn unpack_refuses_symlinks_and_hardlinks(){
+  for kind in [tar::EntryType::Symlink,tar::EntryType::Link] {
+   let (base,stage)=sandbox();let outside=base.join("secret");std::fs::write(&outside,"s").unwrap();
+   let tgz=targz(|b|{raw_entry(b,"link",kind,Some(outside.to_str().unwrap()),b"");raw_entry(b,"link/payload",tar::EntryType::Regular,None,b"x")});
+   assert!(unpack_archive(&tgz,&stage).is_err(),"{kind:?}");
+   assert!(std::fs::symlink_metadata(stage.join("link")).is_err(),"no link may be created");assert_eq!(std::fs::read_to_string(&outside).unwrap(),"s");
+   std::fs::remove_dir_all(base).unwrap();
+  }
+ }
+ #[test] fn unpack_never_writes_to_an_absolute_path(){
+  let (base,stage)=sandbox();let abs=format!("/delta-abs-{}.txt",random_hex(8));
+  let tgz=targz(|b|raw_entry(b,&abs,tar::EntryType::Regular,None,b"x"));
+  let _=unpack_archive(&tgz,&stage);assert!(!std::path::Path::new(&abs).exists());std::fs::remove_dir_all(base).unwrap();
  }
  #[test] fn diagnostics_are_private_and_best_effort(){
   let home=std::env::temp_dir().join(format!("delta-diagnostic-{}",random_hex(8)));
