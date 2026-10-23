@@ -411,3 +411,56 @@ async fn challenge_limit_is_per_key() {
     assert!(ask(pk(2)).await.is_ok());
     n.close().await;
 }
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn supervisor_stop_terminates_the_whole_process_group() {
+    let n = TestNode::new("group-kill").await;
+    let pidfile = n.home.join("grandchild.pid");
+    let script = format!("sleep 300 & echo $! > {}; wait", pidfile.display());
+    n.admin.call("supervisor.add", json!({"id": "group_probe", "command": ["sh", "-c", script]}), None, None).await.unwrap();
+    let mut pid = None;
+    for _ in 0..100 {
+        if let Some(p) = std::fs::read_to_string(&pidfile).ok().and_then(|s| s.trim().parse::<u32>().ok()) {
+            pid = Some(p);
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    let pid = pid.expect("grandchild never started");
+    // a zombie awaiting reaping counts as dead
+    let alive = |pid: u32| std::fs::read_to_string(format!("/proc/{pid}/stat")).map(|s| !s.rsplit(") ").next().unwrap_or("").starts_with('Z')).unwrap_or(false);
+    assert!(alive(pid));
+    n.admin.call("supervisor.stop", json!({"id": "group_probe"}), None, None).await.unwrap();
+    for _ in 0..100 {
+        if !alive(pid) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    assert!(!alive(pid), "grandchild survived supervisor.stop");
+    n.close().await;
+}
+
+#[tokio::test]
+async fn offline_peer_does_not_delay_or_reclassify_calls_to_other_peers() {
+    let a = TestNode::new("route-a").await;
+    let b = TestNode::new("route-b").await;
+    let c = TestNode::new("route-c").await;
+    for n in [&b, &c] {
+        let inv = a.admin.call("peers.invite", json!({}), None, None).await.unwrap();
+        n.admin.call("peers.join", json!({"url": a.url, "code": inv["code"], "local_url": n.url}), None, None).await.unwrap();
+    }
+    c.close().await;
+    let started = std::time::Instant::now();
+    a.admin.call("system.ping", json!({}), Some("route-b"), None).await.unwrap();
+    assert!(started.elapsed() < Duration::from_secs(2), "offline peer slowed a call to another peer");
+
+    let t = a.admin.call("tokens.create", json!({"name": "viewer", "scopes": ["call:system.*"]}), None, None).await.unwrap();
+    let viewer = a.client(t["token"].as_str());
+    assert_eq!(code_of(viewer.call("system.ping", json!({}), Some("route-c"), None).await).await, "unavailable");
+    // authorization stays fail-closed on the target's real admin flag
+    assert_eq!(code_of(viewer.call("tokens.list", json!({}), Some("route-b"), None).await).await, "forbidden");
+    a.close().await;
+    b.close().await;
+}

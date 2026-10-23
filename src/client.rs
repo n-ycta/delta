@@ -2,7 +2,7 @@
 use crate::auth::{sign_request, verify_response};
 use crate::errors::{DeltaError, Result};
 use serde_json::{json, Value};
-use std::time::Duration;
+use std::{sync::OnceLock, time::Duration};
 
 #[derive(Clone)]
 pub struct Client {
@@ -15,20 +15,27 @@ pub struct Client {
 
 impl Client {
     pub fn new(url: &str, token: Option<String>) -> Self {
-        let mut b = reqwest::Client::builder();
-        if let Ok(ca) = std::env::var("DELTA_CA") {
-            if let Ok(pem) = std::fs::read(ca) {
-                if let Ok(cert) = reqwest::Certificate::from_pem(&pem) {
-                    b = b.add_root_certificate(cert);
+        // one connection pool for the whole process; DELTA_CA is read once (timeouts are per request)
+        static HTTP: OnceLock<reqwest::Client> = OnceLock::new();
+        let http = HTTP
+            .get_or_init(|| {
+                let mut b = reqwest::Client::builder();
+                if let Ok(ca) = std::env::var("DELTA_CA") {
+                    if let Ok(pem) = std::fs::read(ca) {
+                        if let Ok(cert) = reqwest::Certificate::from_pem(&pem) {
+                            b = b.add_root_certificate(cert);
+                        }
+                    }
                 }
-            }
-        }
+                b.build().unwrap_or_default()
+            })
+            .clone();
         Self {
             url: url.trim_end_matches('/').to_string(),
             token,
             timeout: Duration::from_secs(35),
             signer: None,
-            http: b.build().unwrap_or_default(),
+            http,
         }
     }
 

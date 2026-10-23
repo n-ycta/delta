@@ -75,6 +75,31 @@ impl HostRuntime {
         if !["desktop", "android"].contains(&kind) {
             return Err(DeltaError::bad_request("invalid_host_kind"));
         }
+        // The lease is taken before the profile is created, so two first launches cannot both write a node_id.
+        {
+            let mut dir = std::fs::DirBuilder::new();
+            dir.recursive(true);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::DirBuilderExt;
+                dir.mode(0o700);
+            }
+            dir.create(&home)
+                .map_err(|_| DeltaError::unavailable("profile_lock_failed"))?;
+        }
+        let mut options = std::fs::OpenOptions::new();
+        options.read(true).write(true).create(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let lease = options
+            .open(home.join("host-runtime.lock"))
+            .map_err(|_| DeltaError::unavailable("profile_lock_failed"))?;
+        lease
+            .try_lock_exclusive()
+            .map_err(|_| DeltaError::new("conflict", "profile_already_open"))?;
         let existed = Config::exists(&home);
         let cfg = Arc::new(if existed {
             (if let Some(c) = &codec {
@@ -101,19 +126,6 @@ impl HostRuntime {
                 .map_err(|_| DeltaError::unavailable("profile_not_saved"))?;
             c
         });
-        let mut options = std::fs::OpenOptions::new();
-        options.read(true).write(true).create(true);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt;
-            options.mode(0o600);
-        }
-        let lease = options
-            .open(home.join("host-runtime.lock"))
-            .map_err(|_| DeltaError::unavailable("profile_lock_failed"))?;
-        lease
-            .try_lock_exclusive()
-            .map_err(|_| DeltaError::new("conflict", "profile_already_open"))?;
         let node_id = cfg.read(|c| c.node_id.clone());
         if existed && cfg.read(|c| c.port) != 0 {
             let port = cfg.read(|c| c.port);

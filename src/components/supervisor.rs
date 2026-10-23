@@ -255,7 +255,7 @@ impl Supervisor {
             // SAFETY: plain signal delivery to a child we spawned
             #[cfg(unix)]
             unsafe {
-                libc::kill(pid as i32, libc::SIGTERM);
+                libc::kill(-(pid as i32), libc::SIGTERM);
             }
             #[cfg(windows)] {
                 if let Some(child) = self.items.lock().unwrap().get_mut(id).and_then(|m| m.child.as_mut()) { let _ = child.start_kill(); }
@@ -271,6 +271,11 @@ impl Supervisor {
                     break;
                 }
                 if Instant::now() >= deadline {
+                    // SAFETY: plain signal delivery to the process group we created with setsid
+                    #[cfg(unix)]
+                    unsafe {
+                        libc::kill(-(pid as i32), libc::SIGKILL);
+                    }
                     let mut g = self.items.lock().unwrap();
                     if let Some(c) = g.get_mut(id).and_then(|m| m.child.as_mut()) {
                         let _ = c.start_kill();

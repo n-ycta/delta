@@ -448,7 +448,10 @@ impl Component for Dependencies {
                 let name = a["capability"].as_str().unwrap_or("");
                 let cap = ctx.kernel.catalog().into_iter().find(|c| c["name"] == name);
                 if let Some(cap) = cap {
-                    let row = rows.iter().find(|r| r["id"] == cap["component"]).unwrap();
+                    let row = rows
+                        .iter()
+                        .find(|r| r["id"] == cap["component"])
+                        .ok_or_else(|| DeltaError::not_found("Capability provider is not registered"))?;
                     let req: Vec<String> =
                         serde_json::from_value(cap["requires"].clone()).unwrap_or_default();
                     let ui = &row["metadata"]["ui"];

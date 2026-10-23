@@ -50,7 +50,8 @@ pub struct CapSpec {
 
 /// Convenience constructor used by built-in components (`name` is the full `<component>.<action>`).
 pub fn cap(name: &str, description: &str, params: Value, admin: bool, public: bool) -> CapSpec {
-    let catalog: Value = serde_json::from_str(include_str!("locales/ru.json")).expect("bundled locales");
+    static LOCALES: std::sync::OnceLock<Value> = std::sync::OnceLock::new();
+    let catalog = LOCALES.get_or_init(|| serde_json::from_str(include_str!("locales/ru.json")).expect("bundled locales"));
     let localizations = catalog.get(name).map(|s| json!({"ru":{"description":s}})).unwrap_or(Value::Null);
     CapSpec { name: name.into(), description: description.into(), localizations, params, admin, public, requires: vec![] }
 }
@@ -85,6 +86,8 @@ pub trait Component: Send + Sync {
 pub trait Router: Send + Sync {
     async fn call(&self, node: &str, capability: &str, args: Value) -> Result<Value>;
     async fn remote_catalog(&self) -> Vec<Value>;
+    /// Capability list of one peer only (resolved by id or name); `unavailable` if it does not answer.
+    async fn remote_capabilities(&self, node: &str) -> Result<Vec<Value>>;
     fn secret_for(&self, peer_id: &str) -> Option<String>;
 }
 
@@ -521,7 +524,10 @@ impl Kernel {
                 return Err(DeltaError::not_found(format!("unknown node {node}")));
             };
             // local authorization first; the remote node authorizes us again as a peer
-            let admin_only = router.remote_catalog().await.iter().find(|v| v["name"] == capability && (v["node"] == node || v["node_name"] == node)).and_then(|v| v["admin"].as_bool()).unwrap_or(true);
+            // only the target's own catalog is consulted (one slow peer must not delay calls to others);
+            // fail-closed: a capability missing from the answer is treated as admin-only
+            let caps = router.remote_capabilities(node).await?;
+            let admin_only = caps.iter().find(|v| v["name"] == capability).and_then(|v| v["admin"].as_bool()).unwrap_or(true);
             if !principal.can_call(capability, admin_only, false) {
                 return Err(DeltaError::forbidden(format!("not allowed to call {capability}")));
             }
