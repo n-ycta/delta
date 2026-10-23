@@ -362,3 +362,33 @@ async fn replaceable_providers_require_explicit_binding_and_protect_enabled_cons
  let key=n.admin.call("tokens.create",json!({"name":"not-owner","scopes":["call:dependencies.*"]}),None,None).await.unwrap();assert_eq!(code_of(n.client(key["token"].as_str()).call("dependencies.bind",json!({"id":"reader","dependency":"records","component":"store_a"}),None,None).await).await,"forbidden");
  n.close().await;
 }
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn supervisor_stop_terminates_the_whole_process_group() {
+    let n = TestNode::new("group-kill").await;
+    let pidfile = n.home.join("grandchild.pid");
+    let script = format!("sleep 300 & echo $! > {}; wait", pidfile.display());
+    n.admin.call("supervisor.add", json!({"id": "group_probe", "command": ["sh", "-c", script]}), None, None).await.unwrap();
+    let mut pid = None;
+    for _ in 0..100 {
+        if let Some(p) = std::fs::read_to_string(&pidfile).ok().and_then(|s| s.trim().parse::<u32>().ok()) {
+            pid = Some(p);
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    let pid = pid.expect("grandchild never started");
+    // a zombie awaiting reaping counts as dead
+    let alive = |pid: u32| std::fs::read_to_string(format!("/proc/{pid}/stat")).map(|s| !s.rsplit(") ").next().unwrap_or("").starts_with('Z')).unwrap_or(false);
+    assert!(alive(pid));
+    n.admin.call("supervisor.stop", json!({"id": "group_probe"}), None, None).await.unwrap();
+    for _ in 0..100 {
+        if !alive(pid) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    assert!(!alive(pid), "grandchild survived supervisor.stop");
+    n.close().await;
+}
