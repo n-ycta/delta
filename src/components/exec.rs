@@ -42,7 +42,7 @@ impl Component for Exec {
                 "exec.run",
                 "Run an allow-listed command without a shell",
                 json!({"command": {"type": "array", "required": true}, "timeout": {"type": "number"}, "input": {"type": "string"}}),
-                false,
+                true,
                 false,
             ),
         ]

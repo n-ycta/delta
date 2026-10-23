@@ -100,7 +100,7 @@ impl Authenticator for Peers {
             return Err(DeltaError::unauthorized("invalid peer signature"));
         }
         let scopes = if peer.scopes.is_empty() { vec!["call:*".to_string()] } else { peer.scopes.clone() };
-        Ok(Some(Principal { kind: Kind::Peer, name: peer.name, scopes, peer_id: node_id.to_string() }))
+        Ok(Some(Principal { kind: Kind::Peer, name: format!("peer:{node_id}"), scopes, peer_id: node_id.to_string() }))
     }
 }
 
@@ -239,6 +239,8 @@ impl Component for Peers {
                     return Err(DeltaError::bad_request("a node cannot join itself"));
                 }
                 let secret = random_hex(32);
+                // `name` is only a display label for the UI chosen by the joiner, never an identity:
+                // authorization uses node_id (see the `peer:<node_id>` Principal in `authenticate`).
                 self.upsert(PeerRecord {
                     node_id: trunc(&node_id, 64),
                     name: trunc(&sarg("name"), 64),

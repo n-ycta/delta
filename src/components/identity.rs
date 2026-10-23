@@ -10,6 +10,8 @@ use k256::schnorr::{Signature, VerifyingKey};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{collections::HashMap, sync::Mutex};
+
+const MAX_CHALLENGES_PER_KEY: usize = 8;
 struct Challenge {
     public_key: String,
     audience: String,
@@ -114,6 +116,9 @@ impl Component for Identity {
                 challenges.retain(|_, c| c.expires > now());
                 if challenges.len() >= 1024 {
                     return Err(DeltaError::unavailable("too many outstanding challenges"));
+                }
+                if challenges.values().filter(|c| c.public_key == pk).count() >= MAX_CHALLENGES_PER_KEY {
+                    return Err(DeltaError::unavailable("too many outstanding challenges for this key"));
                 }
                 challenges.insert(
                     nonce.clone(),
