@@ -50,7 +50,8 @@ pub struct CapSpec {
 
 /// Convenience constructor used by built-in components (`name` is the full `<component>.<action>`).
 pub fn cap(name: &str, description: &str, params: Value, admin: bool, public: bool) -> CapSpec {
-    let catalog: Value = serde_json::from_str(include_str!("locales/ru.json")).expect("bundled locales");
+    static LOCALES: std::sync::OnceLock<Value> = std::sync::OnceLock::new();
+    let catalog = LOCALES.get_or_init(|| serde_json::from_str(include_str!("locales/ru.json")).expect("bundled locales"));
     let localizations = catalog.get(name).map(|s| json!({"ru":{"description":s}})).unwrap_or(Value::Null);
     CapSpec { name: name.into(), description: description.into(), localizations, params, admin, public, requires: vec![] }
 }
