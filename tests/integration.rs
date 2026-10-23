@@ -443,6 +443,31 @@ async fn supervisor_stop_terminates_the_whole_process_group() {
 }
 
 #[tokio::test]
+async fn exec_enforces_the_allow_list_and_the_timeout() {
+    let n = TestNode::with_config("exec-rules", |c| {
+        c.builtin.exec = true;
+        c.exec.allow = vec!["echo".into(), "sleep".into()];
+    })
+    .await;
+    let run = |cmd: Value, extra: Value| {
+        let mut args = json!({"command": cmd});
+        args.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+        let admin = n.admin.clone();
+        async move { admin.call("exec.run", args, None, None).await }
+    };
+    let ok = run(json!(["echo", "hello"]), json!({})).await.unwrap();
+    assert_eq!(ok["code"], 0);
+    assert!(ok["stdout"].as_str().unwrap().contains("hello"));
+    assert_eq!(code_of(run(json!(["cat", "/etc/passwd"]), json!({})).await).await, "forbidden");
+    assert_eq!(code_of(run(json!([]), json!({})).await).await, "forbidden");
+    // a path is only allowed when that exact path is on the list, even if its basename is
+    assert_eq!(code_of(run(json!(["/bin/echo", "x"]), json!({})).await).await, "forbidden");
+    assert_eq!(code_of(run(json!(["./echo", "x"]), json!({})).await).await, "forbidden");
+    assert_eq!(code_of(run(json!(["sleep", "5"]), json!({"timeout": 0.3})).await).await, "timeout");
+    n.close().await;
+}
+
+#[tokio::test]
 async fn offline_peer_does_not_delay_or_reclassify_calls_to_other_peers() {
     let a = TestNode::new("route-a").await;
     let b = TestNode::new("route-b").await;
@@ -463,7 +488,9 @@ async fn offline_peer_does_not_delay_or_reclassify_calls_to_other_peers() {
     assert_eq!(code_of(viewer.call("tokens.list", json!({}), Some("route-b"), None).await).await, "forbidden");
     a.close().await;
     b.close().await;
+}
 
+#[tokio::test]
 async fn port_zero_client_joins_outbound_only_and_last_contact_is_reported() {
     let hub = TestNode::new("ghost-hub").await;
     let client = TestNode::new("ghost-client").await;
@@ -522,4 +549,44 @@ async fn prune_only_forgets_port_zero_registrations_and_only_when_asked() {
     let left: Vec<String> = hub.node.config.read(|c| c.peers.iter().map(|p| p.node_id.clone()).collect());
     assert_eq!(left, vec!["phone", "lan"]);
     hub.close().await;
+}
+
+#[tokio::test]
+async fn calling_an_offline_peer_reports_unavailable() {
+    let a = TestNode::new("off-a").await;
+    let b = TestNode::new("off-b").await;
+    let inv = a.admin.call("peers.invite", json!({}), None, None).await.unwrap();
+    b.admin.call("peers.join", json!({"url": a.url, "code": inv["code"], "local_url": b.url}), None, None).await.unwrap();
+    a.admin.call("system.ping", json!({}), Some("off-b"), None).await.unwrap();
+    b.close().await;
+    assert_eq!(code_of(a.admin.call("system.ping", json!({}), Some("off-b"), None).await).await, "unavailable");
+    let listed = a.admin.call("peers.list", json!({}), None, None).await.unwrap();
+    assert_eq!(listed[0]["online"], false);
+    assert_eq!(code_of(a.admin.call("system.ping", json!({}), Some("nobody"), None).await).await, "not_found");
+    a.close().await;
+}
+
+#[tokio::test]
+async fn peers_remove_notifies_the_other_side_and_leave_is_peer_only() {
+    let a = TestNode::new("rm-a").await;
+    let b = TestNode::new("rm-b").await;
+    let inv = a.admin.call("peers.invite", json!({}), None, None).await.unwrap();
+    b.admin.call("peers.join", json!({"url": a.url, "code": inv["code"], "local_url": b.url}), None, None).await.unwrap();
+    // an owner token is not a peer: it cannot make a node leave
+    assert_eq!(code_of(a.admin.call("peers.leave", json!({}), None, None).await).await, "forbidden");
+    assert_eq!(code_of(a.admin.call("peers.remove", json!({"node": "nobody"}), None, None).await).await, "not_found");
+
+    a.admin.call("peers.remove", json!({"node": "rm-b"}), None, None).await.unwrap();
+    assert!(a.admin.call("peers.list", json!({}), None, None).await.unwrap().as_array().unwrap().is_empty());
+    assert!(b.admin.call("peers.list", json!({}), None, None).await.unwrap().as_array().unwrap().is_empty(), "the other side was told to forget us");
+    // the removed peer can no longer reach us
+    assert_ne!(code_of(b.admin.call("system.ping", json!({}), Some("rm-a"), None).await).await, "ok");
+
+    // removal still works locally when the other side cannot be told
+    let inv = a.admin.call("peers.invite", json!({}), None, None).await.unwrap();
+    b.admin.call("peers.join", json!({"url": a.url, "code": inv["code"], "local_url": b.url}), None, None).await.unwrap();
+    b.close().await;
+    a.admin.call("peers.remove", json!({"node": "rm-b"}), None, None).await.unwrap();
+    assert!(a.admin.call("peers.list", json!({}), None, None).await.unwrap().as_array().unwrap().is_empty());
+    a.close().await;
 }

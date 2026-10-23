@@ -266,3 +266,32 @@ pub fn verify_request(
     }
     nonces.check_and_add(nonce)
 }
+
+#[cfg(test)]
+mod nonce_tests {
+    use super::*;
+
+    #[test]
+    fn a_nonce_is_accepted_once() {
+        let c = NonceCache::new();
+        assert!(c.check_and_add("n1"));
+        assert!(!c.check_and_add("n1"), "replay must be refused");
+        assert!(c.check_and_add("n2"));
+    }
+
+    #[test]
+    fn old_nonces_are_pruned_when_the_cache_is_full() {
+        let c = NonceCache::new();
+        {
+            let mut seen = c.seen.lock().unwrap();
+            seen.insert("ancient".into(), 0.0);
+            for i in 0..10_001 {
+                seen.insert(format!("n{i}"), now());
+            }
+        }
+        // pruning runs on the next insertion: the expired nonce goes, fresh ones stay
+        assert!(c.check_and_add("fresh"));
+        assert!(c.check_and_add("ancient"), "expired nonce was dropped");
+        assert!(!c.check_and_add("n5"), "a recent nonce is still remembered");
+    }
+}
