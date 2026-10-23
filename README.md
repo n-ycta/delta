@@ -4,143 +4,127 @@
 
 **A personal, modular system for your devices, data and automation.**
 
-Connect your desktop and VPS, collect only the information you choose, and manage everything from one web console. The node is small; the web interface, storage and data sources are independent plugins. Replace a plugin without rebuilding the core.
+Delta connects your desktop, phone and VPS into one self-hosted system. A small Rust node handles identity, routing and trust; the web console, storage and data sources are independent plugins you can replace without rebuilding the core.
 
-[Quick start](#quick-start) · [Add another device](#add-another-device) · [Plugins](#plugins) · [Security](#security-and-access) · [Developer guide](docs/platform.md)
+[Quick start](#quick-start) · [Interfaces](#choose-your-interface) · [Architecture](#how-it-works) · [Security](#security-and-access) · [Develop](#develop) · [Docs](#documentation)
 
-> Early release. Back up your data before upgrades. This is a self-hosted system, not a hosted account or NAT relay.
+> Early release. Back up your data before upgrades. Delta is self-hosted: there is no hosted account, NAT relay or VPN.
+
+## What you get
+
+- **One control room** for all your nodes: dashboards, device health, component versions and supervisor logs.
+- **Plugins from pinned releases:** install official plugins from the store; every download is version-pinned and SHA256-checked.
+- **Scoped access:** capability tokens, key-based sign-in (BIP340/Schnorr) and explicit, directional trust between paired nodes.
+- **AI access on your terms:** independent MCP gateways with a tool allow-list per profile.
+- **English / Russian** across the console and plugin presentation.
+
+![Live console overview with test-node telemetry](docs/images/overview.png)
+
+![Typing dashboard with generated QA aggregates](docs/images/metrics.png)
+
+Real browser captures against a local test node; the typing history is generated aggregate data, not captured text. The screenshots show an earlier console version.
 
 ## Choose your interface
 
-- **Browser / VPS:** install Core with the independent [Delta Web](https://github.com/n-ycta/delta-web) plugin using the quick start below.
-- **Linux / Windows app:** [Delta Desktop](https://github.com/n-ycta/delta-desktop#install-the-latest-release) provides a one-command latest-release installer and embeds Core; Web is not required.
-- **Android phone:** [download the latest APK](https://github.com/n-ycta/delta-android/releases/latest/download/Delta-Android-arm64-x86_64.apk). Pair it with a reachable trusted desktop/VPS node for desktop-only plugin capabilities.
+All interfaces share the same UI ([delta-ui](https://github.com/n-ycta/delta-ui)). Service features stay independent plugins.
 
-All interfaces share [Delta UI](https://github.com/n-ycta/delta-ui); service features remain independent plugins. Pairing does not create a VPN or expose local ports.
+| Interface | Use it for | Install |
+| --- | --- | --- |
+| Browser / VPS | The full console on a server or desktop | [Quick start](#quick-start) (node + storage + web) |
+| Desktop (Linux, Windows) | A native app with an embedded node; no web plugin needed | [delta-desktop](https://github.com/n-ycta/delta-desktop#install-the-latest-release) |
+| Android | A phone as a node and console; desktop-only plugin capabilities come from a paired trusted node | [Latest APK](https://github.com/n-ycta/delta-android/releases/latest/download/Delta-Android-arm64-x86_64.apk), see [delta-android](https://github.com/n-ycta/delta-android) |
+
+Desktop and Android are preview hosts, not full replacements for the web console.
 
 ## Quick start
 
-No Rust compiler, Git clone or manual API-token paste is required. The installer downloads a prebuilt node, a private Node.js runtime and verified plugin releases. Default: **node + storage + web**.
+No Rust compiler, Git clone or manual token paste. The installer downloads a prebuilt node, a private Node.js runtime and verified plugin releases. Default: **node + storage + web**.
 
-### Linux · x64 / ARM64
+**Linux · x64 / ARM64** (needs curl, tar with xz, sha256sum):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/n-ycta/delta/main/install.sh -o delta-install.sh
 sh delta-install.sh
 ```
 
-Choose a setup interactively, include typing, or install a bare node:
-
-```sh
-sh delta-install.sh --choose
-sh delta-install.sh --plugins storage,web,typing
-sh delta-install.sh --plugins none
-```
-
-### Windows · x64
-
-Run in PowerShell as your normal user:
+**Windows · x64** (PowerShell, normal user):
 
 ```powershell
 Invoke-WebRequest https://raw.githubusercontent.com/n-ycta/delta/main/install.ps1 -OutFile delta-install.ps1
 .\delta-install.ps1
-# Optional: .\delta-install.ps1 -Choose
-# Optional: .\delta-install.ps1 -Plugins storage,web,typing
 ```
 
-Read the script before running it. Respect your organization's PowerShell execution policy; no policy bypass is required by the installer. Linux requires curl, tar (with xz support) and sha256sum. Windows uses built-in tar and PowerShell. Internet access to GitHub, nodejs.org and npm is required during setup.
+Read the script before running it. Internet access to GitHub, nodejs.org and npm is needed during setup.
 
-The console opens at **http://127.0.0.1:7710** with a one-use setup link. Save and enroll a recovery key during the temporary setup session; a clean browser otherwise requires sign-in. Public owner registration is disabled. A valid remembered session can legitimately restore access. See [Web authentication](https://github.com/n-ycta/delta-web/blob/main/SECURITY.md). On a headless VPS the installer prints an SSH-tunnel command instead. The owner link expires after five minutes; run the installer again with `--open` (PowerShell: `-Open`) to issue a new one. It does not reinstall an already working node. To force a binary/runtime download, set `DELTA_FORCE_DOWNLOAD=1` before running the installer.
+Choose what to install:
 
-Linux uses a systemd **user** service. Service installation failure is reported; a detached temporary process is available only with explicit `--no-service`. Windows installs a **current-user sign-in launcher**, not a privileged Windows service. A bare node does not expose a web UI until the web plugin is installed.
+```sh
+sh delta-install.sh --choose                   # interactive (PowerShell: -Choose)
+sh delta-install.sh --plugins storage,web,typing   # (PowerShell: -Plugins storage,web,typing)
+sh delta-install.sh --plugins none             # bare node, no web UI
+```
 
-## Your control room
+The console opens at **http://127.0.0.1:7710** with a one-use setup link (valid five minutes; re-run with `--open` / `-Open` for a new one). Save and enroll a recovery key during that first session. On a headless VPS the installer prints an SSH-tunnel command instead. Public owner registration is disabled.
 
-![Live console overview with test-node telemetry](docs/images/overview.png)
+Linux installs a systemd **user** service; Windows installs a current-user sign-in launcher, not a Windows service. Details, repair and troubleshooting: [operations notes](docs/operations.md), [repair](docs/repair.md), [access recovery](docs/recover-access.md).
 
-- Build and save dashboards from plugin-published metrics and visualizations.
-- Inspect device health, component versions and supervisor logs.
-- Install official plugins from pinned GitHub release packages in the store.
-- Switch English / Russian globally, including localized plugin presentation.
-- Create independent, scoped MCP gateways for your AI tools.
+### Add another device
 
-![Typing dashboard with generated QA aggregates](docs/images/metrics.png)
+In the console open **Nodes → Add device**, enter the reachable hub and new-device URLs, pick Linux or Windows and run the generated short-lived command on the new machine. The checkbox **Allow this hub to install and manage plugins** is an explicit, one-way trust decision; without it pairing grants normal capability calls only. Peers do not forward calls to a third node.
 
-These are real browser captures against a local node. The typing history uses generated aggregate-only QA sessions, not captured personal text. CPU and memory are live. Delta Observability stores sampled load history through Storage and maintains an observed lifecycle journal. This is not a system-wide event stream.
+Reach nodes over a VPN (for example WireGuard) or an authenticated HTTPS reverse proxy. The node serves plain HTTP; never expose an unprotected port to the Internet.
 
-## Plugins
+## How it works
 
-| Repository | Purpose |
+```text
+ browser / desktop / Android  ──  shared UI (delta-ui)
+              │
+        delta node (Rust): identity · capability routing · authorization · peers · supervisor · package installer
+              │  POST /v1/call {capability, args, node?}
+   ┌──────────┼───────────┬────────────┬──────────────┐
+  web      storage      mcp        updater     provision · observability   (independent plugin processes)
+```
+
+- The core owns identity, routing, authorization, peer transport, process supervision and verified package installation. Plugins are separate processes that register declarative capabilities over the external-component protocol.
+- Storage is a plugin: local files for a quick start, or PostgreSQL/TimescaleDB. File mode is limited to 100,000 records.
+- Node-to-node calls are HMAC-signed. Pairing gives capability routing, not data replication.
+- Contracts, files and ports: [platform guide](docs/platform.md); plugin dependencies: [dependency contracts](docs/dependencies.md).
+
+| Plugin | Purpose |
 | --- | --- |
-| [delta-web](https://github.com/n-ycta/delta-web) | Browser host, sessions and shared UI compatibility facade |
-| [delta_db](https://github.com/n-ycta/delta_db) | Unified record/document contract; file quick start or PostgreSQL + TimescaleDB |
+| [delta-web](https://github.com/n-ycta/delta-web) | Browser host, sessions, shared UI compatibility facade |
+| [delta_db](https://github.com/n-ycta/delta_db) | Record/document storage; files or PostgreSQL + TimescaleDB |
 | [delta_type](https://github.com/n-ycta/delta_type) | Opt-in RU/EN typing aggregates; never records typed text |
 | [delta-mcp](https://github.com/n-ycta/delta-mcp) | Headless HTTP MCP gateways and scoped profiles |
 | [delta-updater](https://github.com/n-ycta/delta-updater) | Release checks, schedules and update jobs |
 | [delta-provision](https://github.com/n-ycta/delta-provision) | SSH onboarding and connection lifecycle |
 | [delta-observability](https://github.com/n-ycta/delta-observability) | Observed events, telemetry sampling and metric queries |
 
-Shared screens live in [delta-ui](https://github.com/n-ycta/delta-ui). [Desktop](https://github.com/n-ycta/delta-desktop) and [Android](https://github.com/n-ycta/delta-android) are preview hosts, not full Web replacements.
-
-The store reads [the official index](registry/plugins.json). Downloads are version-pinned and SHA256-checked, archives reject links/path traversal, npm lifecycle scripts are disabled, and failed readiness checks restore the previous supervisor configuration. Plugins execute native code with the current user's OS permissions — **not a sandbox**. Review requested scopes and trust the publisher. Only owners or explicitly trusted administrative peers can install code.
-
-Storage is a plugin, not a core dependency. Local files let you start without a database server; configure PostgreSQL/TimescaleDB in the storage plugin's settings when needed. In Storage 0.4.x, a new profile attempts managed PostgreSQL (Docker/Podman required) unless existing file data is present. Select file mode explicitly for a container-free setup. Backend changes perform a verified copy with backups; review capacity and migration status before switching. File mode is limited to 100,000 records and intended for a small personal setup.
-
-## Add another device
-
-In the console open **Nodes → Add device**. Enter the mutually reachable hub and new-device URLs, choose Linux or Windows, and generate a short-lived installation command. Run it on the new machine. No compiler is needed.
-
-Use a VPN (for example WireGuard) or authenticated HTTPS reverse proxy. The core serves HTTP; setting a TLS field is not a substitute for a TLS proxy. Do not expose an unprotected port to the public Internet. This version does not provide NAT traversal or hosted relay infrastructure.
-
-The checkbox **Allow this hub to install and manage plugins** is an explicit, directional trust decision. Without it, pairing grants normal capability calls, not administrative installation. Once paired with administrative trust, select the new node in a plugin's install dialog. Peers do not forward calls to a third node. For centralized remote typing ingestion, configure `STORAGE_NODE` to the hub node ID in the typing process environment; this is not automatic database replication.
+The store reads [the official index](registry/plugins.json). Archives reject links and path traversal, npm lifecycle scripts are disabled, and a failed readiness check restores the previous supervisor configuration. Plugins run native code with your OS permissions: **this is not a sandbox**. Review requested scopes and trust the publisher. Only owners or explicitly trusted administrative peers can install code.
 
 ## Security and access
 
-- Local setup exchanges a short-lived **one-use code** for an HttpOnly, SameSite=Strict browser session. The owner token never appears in the URL or JavaScript response.
-- Tokens have explicit capability scopes and optional expiry. A normal `call:*` token cannot execute administrative commands.
-- In **Keys & recovery**, enroll an x-only secp256k1 public key. Login signs a nonce with BIP340/Schnorr; challenges are origin-bound, expire and cannot be replayed.
-- Accepts raw private-key hex, Nostr-compatible `nsec`, or a generated English BIP39 phrase. The phrase uses a documented **Delta-specific derivation**, not a general Nostr seed standard. No Nostr relay account is required.
-- Private keys and phrases stay in the browser. Save recovery material offline. Revoking a key also revokes its active sessions. An owner session is required to enroll another key.
-- Key login defaults to localhost origins. For a custom HTTPS origin, add it to `identity_origins` in the private node configuration and restart the node; set matching `PUBLIC_ORIGIN` on the web process.
+- Setup exchanges a short-lived one-use code for an HttpOnly, SameSite=Strict session; the owner token never appears in a URL or script response.
+- Tokens carry explicit capability scopes and optional expiry. A `call:*` token cannot run administrative commands.
+- **Keys & recovery:** enroll an x-only secp256k1 public key; login signs an origin-bound, expiring, single-use challenge. Accepts raw private-key hex, Nostr `nsec` or a generated English BIP39 phrase (Delta-specific derivation, no relay account). Private keys never leave the browser; keep recovery material offline. Revoking a key revokes its sessions.
+- Key login defaults to localhost origins; for a custom HTTPS origin add it to `identity_origins` and set a matching `PUBLIC_ORIGIN` on the web process.
+- MCP gateways each get a separate bearer credential and kernel token, explicit tools, node/plugin limits and field redaction. Token management, shell execution and package installation are excluded from the MCP catalog.
+- Never publish `admin.token`, `.env`, `config.json`, session files or MCP credentials. Full model: [platform guide](docs/platform.md).
 
-See [the security and operations guide](docs/platform.md) for file locations, backups, MCP policy boundaries and threat-model details. Never publish `admin.token`, `.env`, `config.json`, session files or MCP client credentials.
-
-## AI access through MCP
-
-Install the optional Delta MCP plugin, then open **MCP gateways** to create Analytics, Operations or custom profiles. Each gets a separate bearer credential and kernel token. Pick explicit tools, permitted nodes/plugins, maximum time range/rows and field-redaction rules. Copy the generated URL/header configuration into an MCP client that supports remote Streamable HTTP.
-
-The endpoint implements stateless JSON-RPC initialize/ping/tools-list/tools-call over HTTP. It does not need an external MCP proxy. Credential management, arbitrary token creation, shell execution and package installation are deliberately excluded from the MCP tool catalog. Revoke a profile to invalidate its token. Client secrets are shown once; use HTTPS for remote clients.
-
-## Develop and extend
+## Develop
 
 ```sh
 cargo test --locked
 cargo build --release --locked
+node --test tests/installer.test.mjs   # installer port selection and stale-reuse checks
 ```
 
-[API and architecture](docs/platform.md) · [Apache 2.0 license](LICENSE)
+Release binaries and the package index are rebuilt and versioned together; editing source does not update an installed prebuilt runtime. CI tests Linux and Windows; assets target Linux x64/ARM64 (musl) and Windows x64. There is no one-command prebuilt installer for macOS.
 
-CI tests native Linux and Windows. Release assets target Linux x64/ARM64 (musl) and Windows x64. macOS/Android do not have a one-command prebuilt installer in this release.
+Working on plugins or the console from source: [local source development](docs/ecosystem.md).
 
+## Documentation
 
-### Installer failure diagnostics
+[Platform and operations](docs/platform.md) · [Installation notes](docs/operations.md) · [Dependency contracts](docs/dependencies.md) · [Repair](docs/repair.md) · [Recover access](docs/recover-access.md) · [Local development](docs/ecosystem.md) · [Verification report](docs/verification.md)
 
-An existing installation is reused only when its `bin/release-version` matches the requested release; legacy installs without that marker are refreshed with checksum verification. `DELTA_FORCE_DOWNLOAD=1` still forces a download. Bootstrap reads the configured core port on repeat installation. The Linux user unit explicitly selects the private Node runtime, without depending on an interactive shell's PATH.
-
-If a plugin does not register within 60 seconds, package installation saves its process state and recent logs to a random private file under `data/package-diagnostics/` **before** rollback. The API returns the file location, not the logs. Treat diagnostic contents as sensitive; redact before sharing. A diagnostic write failure does not block rollback. Package jobs include `startedAt` so clients can choose the latest attempt, rather than sorting random job IDs.
-
-Run `node --test tests/installer.test.mjs` alongside `cargo test --locked` to check bootstrap port selection and stale installer reuse. Release binaries and the package index must be rebuilt/versioned together; editing source alone does not update the installed prebuilt runtime.
-
-### Recover access after a browser-owner session expires
-
-If no key was ever enrolled, do not reset or reinstall the node. Use the local-owner [access recovery guide](docs/recover-access.md) to issue a one-use link on the original node and register a saved key. Recovery preserves the existing node ID, plugins, settings and data.
-
-### Autostart repair and browser sessions (v0.4.1)
-
-The default installer now enables or repairs the user service even if a temporary node is already online. On Linux, an owned temporary process is safely stopped before handing control to systemd. Service setup failures are no longer silently presented as a reboot-ready installation; `--no-service` is an explicit temporary/development mode only.
-
-Signed-login token hashes persist across core restarts. The optional remembered-device challenge binds a 30-day lifetime to the signature; ordinary signed sessions remain limited to eight hours. Revoking the key also revokes its persisted sessions. Existing expired or in-memory sessions require one fresh login. Web and core changes must be deployed together for remembered-device login.
-
-### Declarative plugin dependencies (Core 0.4.3+, installer fixes in 0.4.4)
-
-The installer resolves catalog component names or stable plugin IDs, not a fixed plugin pool. Required dependencies are planned before execution; optional integrations require selection. Use `--with-optional` to explicitly select the chosen plugins' optional packages, or `--approve-dependencies` to approve additional required executable dependencies. Review requested scopes before approval. Missing optional providers disable only their declared features. See [dependency contracts](docs/dependencies.md) for compatibility, explicit provider bindings and removal protection. Group installation is ordered, not atomic.
+Licensed under [Apache 2.0](LICENSE).
