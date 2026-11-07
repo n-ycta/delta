@@ -4329,9 +4329,9 @@
       "id": "dev.delta.youtube",
       "component": "youtube",
       "repository": "https://github.com/n-ycta/delta-media-sources",
-      "version": "0.2.5",
-      "asset": "https://github.com/n-ycta/delta-media-sources/releases/download/v0.2.5/delta-youtube.tar.gz",
-      "sha256": "1761b8391d15f378e1dc47cb172b8fbf75e435747a19cec7e5f8d9317262af88",
+      "version": "0.2.6",
+      "asset": "https://github.com/n-ycta/delta-media-sources/releases/download/v0.2.6/delta-youtube.tar.gz",
+      "sha256": "9056a7ca1cfbd956aeb5b4c0039dc46f0ce04d0e2f9a0250f4a108e2dd07d8e5",
       "scopes": [
         "register:youtube",
         "call:youtube.*"
@@ -4339,7 +4339,7 @@
       "manifest": {
         "id": "dev.delta.youtube",
         "name": "YouTube",
-        "version": "0.2.5",
+        "version": "0.2.6",
         "contract": "^1.4.0",
         "description": "Connect YouTube to media plugins. No separate interface.",
         "publisher": "Delta",
