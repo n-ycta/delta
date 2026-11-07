@@ -4614,6 +4614,14 @@
         "id": "dev.delta.media",
         "name": "Delta Media",
         "version": "0.3.10",
+        "metadata": {
+          "portableApp": {
+            "id": "dev.delta.media",
+            "version": "0.3.10",
+            "asset": "https://github.com/n-ycta/delta-media/releases/download/v0.3.10/delta-media.delta-app",
+            "sha256": "c6c064f4d9572b7933a7abfe3e23b5531529d3df6b5f13668d5e4c958957e3bd"
+          }
+        },
         "contract": "^1.4.0",
         "description": "Music, video, radio and connected providers.",
         "publisher": "Delta",
